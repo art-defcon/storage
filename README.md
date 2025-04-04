@@ -109,7 +109,3 @@ This project is based on the Ultralytics YOLO implementation by Glenn Jocher and
 - **YOLO11x-seg Model**: [Model Documentation](https://docs.ultralytics.com/tasks/segment/)
 - **Author**: John Petroff
 - **Project Repository**: [GitHub](https://github.com/johnpetroff/storage-segmentation-app)
-
-## License
-
-[MIT License](LICENSE)
