@@ -22,40 +22,33 @@ class BaseDetector(ABC):
         self.confidence_threshold = confidence_threshold
         self.input_size = 640
         
-        # COCO class IDs for storage-related objects
-        # 39: bottle, 41: cup, 42: fork, 56: chair, 57: couch, 58: potted plant, 59: bed, 60: dining table, 
-        # 61: toilet, 62: tv, 63: laptop, 64: mouse, 65: remote, 66: keyboard, 67: cell phone, 73: book, 
-        # 74: clock, 75: vase, 76: scissors, 77: teddy bear, 78: hair drier, 79: toothbrush
-        
-        # Define class mappings for COCO classes to storage-related classes
-        self.unit_classes = {
-            56: "Chair",       # chair
-            57: "Couch",       # couch
-            59: "Bed",         # bed
-            60: "Table",       # dining table
-            62: "TV Stand",    # tv
-            73: "Bookshelf",   # book
-            75: "Vase",        # vase
-            # Add more mappings as needed
+        # Define storage furniture classes - ONLY include storage furniture items
+        self.storage_furniture_classes = {
+            # COCO classes that map to storage furniture
+            75: "Vase",        # vase (COCO class)
+            73: "Bookshelf",   # book (COCO class, will be treated as bookshelf)
+            
+            # Storage-specific classes
+            100: "Drawer",
+            101: "Shelf",
+            102: "Cabinet",
+            103: "Wardrobe",
+            104: "Storage Box",
+            105: "Chest",
+            106: "Sideboard",
+            109: "Dresser",
+            118: "Box",
+            116: "Basket",
+            125: "Refrigerator",
+            126: "Chest of Drawers"
         }
         
-        self.compartment_classes = {
-            39: "Bottle",      # bottle
-            41: "Cup",         # cup
-            56: "Chair",       # chair
-            57: "Couch",       # couch
-            59: "Bed",         # bed
-            60: "Table",       # dining table
-            62: "TV",          # tv
-            73: "Book",        # book
-            75: "Vase",        # vase
-            76: "Scissors",    # scissors
-            77: "Teddy Bear",  # teddy bear
-            # Add more mappings as needed
-        }
+        # Use the storage furniture classes for both unit and compartment detection
+        self.unit_classes = self.storage_furniture_classes.copy()
+        self.compartment_classes = self.storage_furniture_classes.copy()
         
-        # Add drawer and other storage-specific classes (these won't be detected by COCO model)
-        # but we keep them for future custom models
+        # Keep the full list of storage-specific classes for reference
+        # but we'll only use the ones in storage_furniture_classes for detection
         self.storage_specific_classes = {
             100: "Drawer",
             101: "Shelf",
@@ -81,12 +74,10 @@ class BaseDetector(ABC):
             121: "Rack",
             122: "Hanger",
             123: "Hook",
-            124: "Organizer"
+            124: "Organizer",
+            125: "Refrigerator",
+            126: "Chest of Drawers"
         }
-        
-        # Update unit_classes and compartment_classes with storage-specific classes
-        self.unit_classes.update(self.storage_specific_classes)
-        self.compartment_classes.update(self.storage_specific_classes)
     
     @abstractmethod
     def _load_models(self):
@@ -256,11 +247,16 @@ class StorageDetector(BaseDetector):
                 confidence = float(box.conf[0])
                 class_id = int(box.cls[0])
                 
-                # Get class name from COCO class ID
+                # Skip if not a storage furniture item
+                if class_id not in self.storage_furniture_classes:
+                    print(f"Skipping non-storage item with class ID: {class_id}")
+                    continue
+                
+                # Get class name from class ID
                 class_name = self.unit_classes.get(class_id, f"Unknown-{class_id}")
                 
                 # Print detection info for debugging
-                print(f"Detected: {class_name} (COCO class ID: {class_id}) with confidence {confidence:.2f}")
+                print(f"Detected: {class_name} (class ID: {class_id}) with confidence {confidence:.2f}")
                 
                 # Get mask if available and scale it to original image size
                 mask = None
@@ -348,11 +344,16 @@ class StorageDetector(BaseDetector):
                 confidence = float(box.conf[0])
                 class_id = int(box.cls[0])
                 
-                # Get class name from COCO class ID
+                # Skip if not a storage furniture item
+                if class_id not in self.storage_furniture_classes:
+                    print(f"Skipping non-storage compartment with class ID: {class_id}")
+                    continue
+                
+                # Get class name from class ID
                 class_name = self.compartment_classes.get(class_id, f"Unknown-{class_id}")
                 
                 # Print detection info for debugging
-                print(f"Detected compartment: {class_name} (COCO class ID: {class_id}) with confidence {confidence:.2f}")
+                print(f"Detected compartment: {class_name} (class ID: {class_id}) with confidence {confidence:.2f}")
                 
                 # Get mask if available
                 mask = None
@@ -404,6 +405,7 @@ def create_detector(model_type="yolo", confidence_threshold=0.5):
         return FastSAMDetector(confidence_threshold)
     else:  # Default to YOLO
         return StorageDetector(confidence_threshold)
+
 class SAM21Detector(BaseDetector):
     """
     Class for detecting storage units and their compartments in images
@@ -500,7 +502,7 @@ class SAM21Detector(BaseDetector):
                 if x2 - x1 < 10 or y2 - y1 < 10:
                     continue
                 
-                # Assign a default class for SAM detections
+                # Assign a default class for SAM detections - use a storage furniture class
                 class_id = 102  # Cabinet
                 class_name = self.unit_classes.get(class_id, "Storage Unit")
                 confidence = 0.9  # SAM doesn't provide confidence scores, so we use a default
@@ -587,8 +589,8 @@ class SAM21Detector(BaseDetector):
                 global_x2 = x1 + cx2
                 global_y2 = y1 + cy2
                 
-                # Assign a default class for SAM compartment detections
-                class_id = 114  # Compartment
+                # Assign a default class for SAM compartment detections - use a storage furniture class
+                class_id = 118  # Box (a storage item)
                 class_name = self.compartment_classes.get(class_id, "Compartment")
                 confidence = 0.85  # SAM doesn't provide confidence scores, so we use a default
                 
@@ -709,7 +711,7 @@ class FastSAMDetector(BaseDetector):
                 if x2 - x1 < 10 or y2 - y1 < 10:
                     continue
                 
-                # Assign a default class for FastSAM detections
+                # Assign a default class for FastSAM detections - use a storage furniture class
                 class_id = 102  # Cabinet
                 class_name = self.unit_classes.get(class_id, "Storage Unit")
                 confidence = 0.9  # FastSAM doesn't provide confidence scores, so we use a default
@@ -784,39 +786,3 @@ class FastSAMDetector(BaseDetector):
                     continue
                 
                 cx1, cy1 = np.min(x_indices), np.min(y_indices)
-                cx2, cy2 = np.max(x_indices), np.max(y_indices)
-                
-                # Skip if the bounding box is too small
-                if cx2 - cx1 < 5 or cy2 - cy1 < 5:
-                    continue
-                
-                # Convert to global coordinates
-                global_x1 = x1 + cx1
-                global_y1 = y1 + cy1
-                global_x2 = x1 + cx2
-                global_y2 = y1 + cy2
-                
-                # Assign a default class for FastSAM compartment detections
-                class_id = 114  # Compartment
-                class_name = self.compartment_classes.get(class_id, "Compartment")
-                confidence = 0.85  # FastSAM doesn't provide confidence scores, so we use a default
-                
-                # Create global mask
-                global_mask = np.zeros(image.shape[:2], dtype=bool)
-                global_mask[y1:y2, x1:x2] = resized_mask
-                
-                # Print detection info for debugging
-                print(f"Detected compartment with FastSAM: {class_name} with confidence {confidence:.2f}")
-                
-                # Create compartment object
-                compartment = StorageCompartment(
-                    x1=int(global_x1), y1=int(global_y1), x2=int(global_x2), y2=int(global_y2),
-                    confidence=confidence,
-                    class_id=class_id,
-                    class_name=class_name,
-                    mask=global_mask,
-                    parent_unit=storage_unit
-                )
-                
-                # Add compartment to the storage unit
-                storage_unit.add_compartment(compartment)

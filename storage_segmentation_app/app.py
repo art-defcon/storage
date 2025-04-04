@@ -45,7 +45,7 @@ def main():
         st.subheader("Model Selection")
         model_type = st.radio(
             "Segmentation Model",
-            options=["YOLO", "SAM 2.1", "FastSAM"],
+            options=["YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"],
             index=0,
             help="Choose the segmentation model to use for detection"
         )
@@ -53,8 +53,12 @@ def main():
         # Model descriptions
         if model_type == "YOLO":
             st.info("YOLO: Fast and accurate object detection with good segmentation capabilities.")
-        elif model_type == "SAM 2.1":
-            st.info("SAM 2.1: State-of-the-art segmentation model with excellent detail, but slower processing.")
+        elif "SAM 2.1 tiny" in model_type:
+            st.info("SAM 2.1 tiny: Lightweight version of SAM 2.1 with faster processing and good segmentation quality.")
+        elif "SAM 2.1 small" in model_type:
+            st.info("SAM 2.1 small: Medium-sized SAM 2.1 model with balanced performance and accuracy.")
+        elif "SAM 2.1 base" in model_type:
+            st.warning("SAM 2.1 base: Full-sized SAM 2.1 model with excellent detail and precision, but slower processing time.")
         else:  # FastSAM
             st.info("FastSAM: Optimized version of SAM with faster processing but potentially less detail.")
         
@@ -74,13 +78,13 @@ def main():
         
         with col1:
             st.subheader("Original Image")
-            st.image(image, use_column_width=True)
+            st.image(image, use_container_width=True)
         
         # Process image when button is clicked
         if process_button:
             with st.spinner(f"Processing image with {model_type}..."):
                 # Convert model type to lowercase for detector creation
-                detector_model_type = model_type.lower().replace(" ", "").replace(".", "")
+                detector_model_type = model_type.lower().replace(" ", "").replace(".", "").replace("⚠️", "")
                 
                 # Initialize detector with selected model
                 detector = create_detector(
@@ -103,7 +107,7 @@ def main():
                 
                 with col2:
                     st.subheader(f"Detected Storage Units ({model_type})")
-                    st.image(annotated_image, use_column_width=True)
+                    st.image(annotated_image, use_container_width=True)
                 
                 # Display results
                 st.subheader("Detection Results")
@@ -151,7 +155,9 @@ def main():
                 
                 **Model Comparison:**
                 - **YOLO**: Fast detection with good accuracy for common objects. Best for real-time applications.
-                - **SAM 2.1**: State-of-the-art segmentation with excellent boundary precision. Best for detailed analysis.
+                - **SAM 2.1 tiny**: Lightweight segmentation model with good speed and reasonable accuracy.
+                - **SAM 2.1 small**: Medium-sized model with balanced performance and accuracy.
+                - **SAM 2.1 base** ⚠️: Full-sized model with excellent boundary precision. Best for detailed analysis but slower.
                 - **FastSAM**: Optimized for speed while maintaining good segmentation quality. Good balance of speed and accuracy.
                 """)
 
