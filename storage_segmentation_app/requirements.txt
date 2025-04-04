@@ -1,6 +1,8 @@
 streamlit
-ultralytics
+ultralytics>=8.0.0  # For YOLO, SAM 2.1, and FastSAM support
 opencv-python-headless
 numpy
 pandas
 Pillow
+torch>=2.0.0
+torchvision>=0.15.0

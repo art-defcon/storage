@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 import pandas as pd
 
-from detection import StorageDetector
+from detection import create_detector
 from models import StorageUnit, StorageCompartment
 from utils import visualize_segmentation, create_hierarchy_tree
 
@@ -20,7 +20,7 @@ def main():
     st.title("Storage Segmentation App")
     st.markdown("""
     This application uses AI to detect storage furniture and segment individual compartments.
-    It utilizes the YOLO11x-seg model for improved segmentation accuracy.
+    It supports multiple segmentation models for different use cases.
     Upload an image of storage furniture to get started.
     """)
     
@@ -41,6 +41,27 @@ def main():
             step=0.05
         )
         
+        # Model selection
+        st.subheader("Model Selection")
+        model_type = st.radio(
+            "Segmentation Model",
+            options=["YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"],
+            index=0,
+            help="Choose the segmentation model to use for detection"
+        )
+        
+        # Model descriptions
+        if model_type == "YOLO":
+            st.info("YOLO: Fast and accurate object detection with good segmentation capabilities.")
+        elif "SAM 2.1 tiny" in model_type:
+            st.info("SAM 2.1 tiny: Lightweight version of SAM 2.1 with faster processing and good segmentation quality.")
+        elif "SAM 2.1 small" in model_type:
+            st.info("SAM 2.1 small: Medium-sized SAM 2.1 model with balanced performance and accuracy.")
+        elif "SAM 2.1 base" in model_type:
+            st.warning("SAM 2.1 base: Full-sized SAM 2.1 model with excellent detail and precision, but slower processing time.")
+        else:  # FastSAM
+            st.info("FastSAM: Optimized version of SAM with faster processing but potentially less detail.")
+        
         detection_mode = st.radio(
             "Detection Mode",
             options=["Full (Units & Compartments)", "Units Only"]
@@ -57,13 +78,19 @@ def main():
         
         with col1:
             st.subheader("Original Image")
-            st.image(image, use_column_width=True)
+            st.image(image, use_container_width=True)
         
         # Process image when button is clicked
         if process_button:
-            with st.spinner("Processing image..."):
-                # Initialize detector
-                detector = StorageDetector(confidence_threshold=confidence_threshold)
+            with st.spinner(f"Processing image with {model_type}..."):
+                # Convert model type to lowercase for detector creation
+                detector_model_type = model_type.lower().replace(" ", "").replace(".", "").replace("⚠️", "")
+                
+                # Initialize detector with selected model
+                detector = create_detector(
+                    model_type=detector_model_type,
+                    confidence_threshold=confidence_threshold
+                )
                 
                 # Process image
                 detect_compartments = detection_mode == "Full (Units & Compartments)"
@@ -79,8 +106,8 @@ def main():
                 )
                 
                 with col2:
-                    st.subheader("Detected Storage Units")
-                    st.image(annotated_image, use_column_width=True)
+                    st.subheader(f"Detected Storage Units ({model_type})")
+                    st.image(annotated_image, use_container_width=True)
                 
                 # Display results
                 st.subheader("Detection Results")
@@ -120,6 +147,19 @@ def main():
                         st.dataframe(df)
                     else:
                         st.info("No storage units detected.")
+                
+                # Model comparison information
+                st.subheader("Model Information")
+                st.markdown(f"""
+                **Current Model: {model_type}**
+                
+                **Model Comparison:**
+                - **YOLO**: Fast detection with good accuracy for common objects. Best for real-time applications.
+                - **SAM 2.1 tiny**: Lightweight segmentation model with good speed and reasonable accuracy.
+                - **SAM 2.1 small**: Medium-sized model with balanced performance and accuracy.
+                - **SAM 2.1 base** ⚠️: Full-sized model with excellent boundary precision. Best for detailed analysis but slower.
+                - **FastSAM**: Optimized for speed while maintaining good segmentation quality. Good balance of speed and accuracy.
+                """)
 
 if __name__ == "__main__":
     main()
