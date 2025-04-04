@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 import pandas as pd
 
-from detection import create_detector, DETECTION_MODE_FULL, DETECTION_MODE_UNITS_ONLY, DETECTION_MODE_ALL_SEGMENTS, DETECTION_MODE_MAJOR_SEGMENTS
+from detection import create_detector, DETECTION_MODE_FULL, DETECTION_MODE_UNITS_ONLY, DETECTION_MODE_ALL_SEGMENTS
 from models import StorageUnit, StorageCompartment
 from utils import visualize_segmentation, create_hierarchy_tree
 
@@ -41,6 +41,16 @@ def main():
             step=0.05
         )
         
+        # Object size filter slider
+        object_size_percentage = st.slider(
+            "Object size", 
+            min_value=1, 
+            max_value=50, 
+            value=15, 
+            step=1,
+            help="Filter out objects smaller than this percentage of the image width"
+        )
+        
         # Model selection
         st.subheader("Model Selection")
         model_type = st.radio(
@@ -67,8 +77,7 @@ def main():
             options=[
                 DETECTION_MODE_FULL, 
                 DETECTION_MODE_UNITS_ONLY,
-                DETECTION_MODE_ALL_SEGMENTS,
-                DETECTION_MODE_MAJOR_SEGMENTS
+                DETECTION_MODE_ALL_SEGMENTS
             ]
         )
         
@@ -79,8 +88,6 @@ def main():
             st.info("Units Only: Detects only storage units without their compartments.")
         elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
             st.info("All Segment: Shows all segmentation without filtering any objects.")
-        elif detection_mode == DETECTION_MODE_MAJOR_SEGMENTS:
-            st.info("Major Segments: Shows all segments but filters away segments smaller than 15% of the image width.")
         
         process_button = st.button("Process Image")
     
@@ -107,16 +114,24 @@ def main():
                     confidence_threshold=confidence_threshold
                 )
                 
+                # Calculate min_segment_width based on the object_size_percentage slider
+                image_width = image.width
+                min_segment_width = int(image_width * (object_size_percentage / 100))
+                
                 # Process image based on detection mode
                 if detection_mode == DETECTION_MODE_FULL:
                     storage_units = detector.process_image(
                         np.array(image), 
-                        detect_compartments=True
+                        detect_compartments=True,
+                        filter_small_segments=True,
+                        min_segment_width=min_segment_width
                     )
                 elif detection_mode == DETECTION_MODE_UNITS_ONLY:
                     storage_units = detector.process_image(
                         np.array(image), 
-                        detect_compartments=False
+                        detect_compartments=False,
+                        filter_small_segments=True,
+                        min_segment_width=min_segment_width
                     )
                 elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
                     # For "All Segment" mode, we detect all segments without filtering
@@ -124,16 +139,6 @@ def main():
                         np.array(image), 
                         detect_compartments=True,
                         filter_small_segments=False
-                    )
-                elif detection_mode == DETECTION_MODE_MAJOR_SEGMENTS:
-                    # For "Major Segments" mode, we filter segments smaller than 15% of image width
-                    image_width = image.width
-                    min_segment_width = int(image_width * 0.15)
-                    storage_units = detector.process_image(
-                        np.array(image), 
-                        detect_compartments=True,
-                        filter_small_segments=True,
-                        min_segment_width=min_segment_width
                     )
                 
                 # Visualize results

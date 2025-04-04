@@ -47,7 +47,11 @@ streamlit run app.py
 
 4. Adjust the detection settings as needed:
    - Confidence Threshold: Minimum confidence score for detections
-   - Detection Mode: Choose between full detection (units & compartments) or units only
+   - Detection Mode: Choose between:
+     - Full (Units & Compartments): Detects both storage units and their internal compartments
+     - Units Only: Detects only the main storage units without internal compartments
+     - All Segment: Shows all segmentation without filtering any objects
+   - Object Size: Filter objects based on percentage of screen width (ranges from 1% to 50% with a default of 15%)
 
 5. Click the "Process Image" button to start the detection
 
@@ -55,6 +59,22 @@ streamlit run app.py
    - Original and annotated images side by side
    - Hierarchy view showing the structure of detected storage units and compartments
    - Table view with detailed information about each detected element
+
+## Object Size Filtering
+
+The "Object size" slider allows you to filter detected objects based on their width relative to the image width:
+
+- The slider ranges from 1% to 50% of the image width, with a default value of 15%
+- Objects smaller than the selected percentage will be filtered out
+- This filtering applies to all detection modes:
+  - In "Full" mode, both units and compartments smaller than the threshold will be filtered
+  - In "Units Only" mode, only units smaller than the threshold will be filtered
+  - In "All Segment" mode, all detected segments smaller than the threshold will be filtered
+
+This feature is particularly useful for:
+- Removing small, irrelevant objects from the detection results
+- Focusing on larger storage units when analyzing complex scenes
+- Adjusting detection sensitivity based on the specific image content
 
 ## Project Structure
 
