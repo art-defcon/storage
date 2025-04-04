@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 import pandas as pd
 
-from detection import create_detector
+from detection import create_detector, DETECTION_MODE_FULL, DETECTION_MODE_UNITS_ONLY, DETECTION_MODE_ALL_SEGMENTS, DETECTION_MODE_MAJOR_SEGMENTS
 from models import StorageUnit, StorageCompartment
 from utils import visualize_segmentation, create_hierarchy_tree
 
@@ -64,8 +64,23 @@ def main():
         
         detection_mode = st.radio(
             "Detection Mode",
-            options=["Full (Units & Compartments)", "Units Only"]
+            options=[
+                DETECTION_MODE_FULL, 
+                DETECTION_MODE_UNITS_ONLY,
+                DETECTION_MODE_ALL_SEGMENTS,
+                DETECTION_MODE_MAJOR_SEGMENTS
+            ]
         )
+        
+        # Detection mode descriptions
+        if detection_mode == DETECTION_MODE_FULL:
+            st.info("Full: Detects both storage units and their compartments.")
+        elif detection_mode == DETECTION_MODE_UNITS_ONLY:
+            st.info("Units Only: Detects only storage units without their compartments.")
+        elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
+            st.info("All Segment: Shows all segmentation without filtering any objects.")
+        elif detection_mode == DETECTION_MODE_MAJOR_SEGMENTS:
+            st.info("Major Segments: Shows all segments but filters away segments smaller than 15% of the image width.")
         
         process_button = st.button("Process Image")
     
@@ -92,12 +107,34 @@ def main():
                     confidence_threshold=confidence_threshold
                 )
                 
-                # Process image
-                detect_compartments = detection_mode == "Full (Units & Compartments)"
-                storage_units = detector.process_image(
-                    np.array(image), 
-                    detect_compartments=detect_compartments
-                )
+                # Process image based on detection mode
+                if detection_mode == DETECTION_MODE_FULL:
+                    storage_units = detector.process_image(
+                        np.array(image), 
+                        detect_compartments=True
+                    )
+                elif detection_mode == DETECTION_MODE_UNITS_ONLY:
+                    storage_units = detector.process_image(
+                        np.array(image), 
+                        detect_compartments=False
+                    )
+                elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
+                    # For "All Segment" mode, we detect all segments without filtering
+                    storage_units = detector.process_image(
+                        np.array(image), 
+                        detect_compartments=True,
+                        filter_small_segments=False
+                    )
+                elif detection_mode == DETECTION_MODE_MAJOR_SEGMENTS:
+                    # For "Major Segments" mode, we filter segments smaller than 15% of image width
+                    image_width = image.width
+                    min_segment_width = int(image_width * 0.15)
+                    storage_units = detector.process_image(
+                        np.array(image), 
+                        detect_compartments=True,
+                        filter_small_segments=True,
+                        min_segment_width=min_segment_width
+                    )
                 
                 # Visualize results
                 annotated_image = visualize_segmentation(

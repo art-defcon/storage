@@ -122,13 +122,15 @@ class BaseDetector(ABC):
         )
     
     @abstractmethod
-    def process_image(self, image, detect_compartments=True):
+    def process_image(self, image, detect_compartments=True, filter_small_segments=False, min_segment_width=None):
         """
         Process an image to detect storage units and their compartments.
         
         Args:
             image (numpy.ndarray): Input image
             detect_compartments (bool): Whether to detect compartments within units
+            filter_small_segments (bool): Whether to filter out small segments
+            min_segment_width (int): Minimum width for segments to be included (if None, uses 15% of image width)
             
         Returns:
             list: List of StorageUnit objects with detected compartments
@@ -136,12 +138,14 @@ class BaseDetector(ABC):
         pass
     
     @abstractmethod
-    def _detect_compartments(self, image, storage_unit):
+    def _detect_compartments(self, image, storage_unit, filter_small_segments=False, min_segment_width=None):
         """
         Detect compartments within a storage unit.
         
         Args:
             image (numpy.ndarray): Input image
             storage_unit (StorageUnit): Storage unit to detect compartments in
+            filter_small_segments (bool): Whether to filter out small segments
+            min_segment_width (int): Minimum width for segments to be included
         """
         pass

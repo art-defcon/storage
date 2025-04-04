@@ -48,19 +48,25 @@ class SAM21Detector(BaseDetector):
             # Fallback to default SAM model
             self.model = SAM("sam2.1_b.pt")
     
-    def process_image(self, image, detect_compartments=True):
+    def process_image(self, image, detect_compartments=True, filter_small_segments=False, min_segment_width=None):
         """
         Process an image to detect storage units and their compartments using SAM 2.1.
         
         Args:
             image (numpy.ndarray): Input image
             detect_compartments (bool): Whether to detect compartments within units
+            filter_small_segments (bool): Whether to filter out small segments
+            min_segment_width (int): Minimum width for segments to be included (if None, uses 15% of image width)
             
         Returns:
             list: List of StorageUnit objects with detected compartments
         """
         # Store original image dimensions
         original_h, original_w = image.shape[:2]
+        
+        # If min_segment_width is not provided, calculate it as 15% of the image width
+        if filter_small_segments and min_segment_width is None:
+            min_segment_width = int(original_w * 0.15)
         
         # Resize image for model input if needed
         resized_image, scale_x, scale_y = self._resize_image(image)
@@ -101,6 +107,11 @@ class SAM21Detector(BaseDetector):
                 if x2 - x1 < 10 or y2 - y1 < 10:
                     continue
                 
+                # Skip small segments if filtering is enabled
+                if filter_small_segments and (x2 - x1) < min_segment_width:
+                    print(f"Skipping small segment with width {x2 - x1} (min required: {min_segment_width})")
+                    continue
+                
                 # Assign a default class for SAM detections - use a storage furniture class
                 class_id = 102  # Cabinet
                 class_name = self.unit_classes.get(class_id, "Storage Unit")
@@ -120,19 +131,21 @@ class SAM21Detector(BaseDetector):
                 
                 # Detect compartments within this unit if requested
                 if detect_compartments:
-                    self._detect_compartments(image, unit)
+                    self._detect_compartments(image, unit, filter_small_segments, min_segment_width)
                 
                 storage_units.append(unit)
         
         return storage_units
     
-    def _detect_compartments(self, image, storage_unit):
+    def _detect_compartments(self, image, storage_unit, filter_small_segments=False, min_segment_width=None):
         """
         Detect compartments within a storage unit using SAM 2.1.
         
         Args:
             image (numpy.ndarray): Input image
             storage_unit (StorageUnit): Storage unit to detect compartments in
+            filter_small_segments (bool): Whether to filter out small segments
+            min_segment_width (int): Minimum width for segments to be included
         """
         # Crop the image to the storage unit
         x1, y1, x2, y2 = storage_unit.x1, storage_unit.y1, storage_unit.x2, storage_unit.y2
@@ -144,6 +157,10 @@ class SAM21Detector(BaseDetector):
         
         # Store original unit image dimensions
         unit_h, unit_w = unit_image.shape[:2]
+        
+        # If min_segment_width is not provided, calculate it as 15% of the unit width
+        if filter_small_segments and min_segment_width is None:
+            min_segment_width = int(unit_w * 0.15)
         
         # Resize unit image for model input if needed
         resized_unit_image = cv2.resize(unit_image, (self.input_size, self.input_size))
@@ -180,6 +197,11 @@ class SAM21Detector(BaseDetector):
                 
                 # Skip if the bounding box is too small
                 if cx2 - cx1 < 5 or cy2 - cy1 < 5:
+                    continue
+                
+                # Skip small segments if filtering is enabled
+                if filter_small_segments and (cx2 - cx1) < min_segment_width:
+                    print(f"Skipping small compartment with width {cx2 - cx1} (min required: {min_segment_width})")
                     continue
                 
                 # Convert to global coordinates
