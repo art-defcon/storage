@@ -1,14 +1,17 @@
 # Storage Segmentation App
 
-This application uses AI/ML to scan images of storage furniture, identify different storage types, and segment individual compartments within each storage unit. It creates a structured list of all available storage spaces and displays the image with visual annotations showing all identified segments.
+This application uses AI/ML to scan images of your storage furniture, identify different storage types, and segment individual compartments within each storage unit. It creates a structured list of all available storage spaces and displays the image with visual annotations showing all identified segments.
+
+![Storage Segmentation App Screenshot](https://github.com/art-defcon/storage/blob/main/public/screenshot_segment.png)
+*The Storage Segmentation App interface showing detection modes and the object size slider that help you customize how storage units are identified and displayed.*
 
 ## Features
 
-- Scan images of storage furniture
+- Scan images of your storage furniture
 - Identify different storage types using YOLO11x-seg model for improved accuracy
 - Segment individual compartments within each storage unit
-- Create a structured list of all available storage spaces
-- Display the image with visual annotations showing all identified segments
+- Create a structured list of all your available storage spaces
+- Display your image with visual annotations showing all identified segments
 
 ## Technical Requirements
 
@@ -43,38 +46,38 @@ streamlit run app.py
 
 2. Open your web browser and navigate to the URL displayed in the terminal (typically http://localhost:8501)
 
-3. Upload an image of storage furniture using the file uploader in the sidebar
+3. Upload an image of your storage furniture using the file uploader in the sidebar
 
-4. Adjust the detection settings as needed:
-   - Confidence Threshold: Minimum confidence score for detections
+4. Adjust the detection settings to suit your needs:
+   - Confidence Threshold: Set the minimum confidence score for your detections
    - Detection Mode: Choose between:
-     - Full (Units & Compartments): Detects both storage units and their internal compartments
-     - Units Only: Detects only the main storage units without internal compartments
+     - Full (Units & Compartments): Detects both your storage units and their internal compartments
+     - Units Only: Detects only your main storage units without internal compartments
      - All Segment: Shows all segmentation without filtering any objects
-   - Object Size: Filter objects based on percentage of screen width (ranges from 1% to 50% with a default of 15%)
+   - Object Size: Filter objects based on percentage of your screen width (ranges from 1% to 50% with a default of 15%)
 
 5. Click the "Process Image" button to start the detection
 
-6. View the results:
+6. View your results:
    - Original and annotated images side by side
-   - Hierarchy view showing the structure of detected storage units and compartments
+   - Hierarchy view showing the structure of your detected storage units and compartments
    - Table view with detailed information about each detected element
 
 ## Object Size Filtering
 
-The "Object size" slider allows you to filter detected objects based on their width relative to the image width:
+The "Object size" slider lets you filter detected objects based on their width relative to your image width:
 
-- The slider ranges from 1% to 50% of the image width, with a default value of 15%
-- Objects smaller than the selected percentage will be filtered out
+- The slider ranges from 1% to 50% of your image width, with a default value of 15%
+- Objects smaller than your selected percentage will be filtered out
 - This filtering applies to all detection modes:
-  - In "Full" mode, both units and compartments smaller than the threshold will be filtered
-  - In "Units Only" mode, only units smaller than the threshold will be filtered
-  - In "All Segment" mode, all detected segments smaller than the threshold will be filtered
+  - In "Full" mode, both units and compartments smaller than your threshold will be filtered
+  - In "Units Only" mode, only units smaller than your threshold will be filtered
+  - In "All Segment" mode, all detected segments smaller than your threshold will be filtered
 
 This feature is particularly useful for:
-- Removing small, irrelevant objects from the detection results
-- Focusing on larger storage units when analyzing complex scenes
-- Adjusting detection sensitivity based on the specific image content
+- Removing small, irrelevant objects from your detection results
+- Focusing on larger storage units when analyzing your complex scenes
+- Adjusting detection sensitivity based on your specific image content
 
 ## Project Structure
 
@@ -117,9 +120,9 @@ This project relies on several powerful open-source libraries:
 
 You can customize the application by:
 
-- Training custom YOLO models for specific types of storage furniture
+- Training custom YOLO models for specific types of your storage furniture
 - Adjusting the visualization parameters in the `utils.py` file
-- Adding additional metadata fields to the storage unit and compartment classes
+- Adding additional metadata fields to your storage unit and compartment classes
 
 ## Credits and Acknowledgements
 
