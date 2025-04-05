@@ -7,6 +7,15 @@ import pandas as pd
 from detection import create_detector, DETECTION_MODE_FULL, DETECTION_MODE_UNITS_ONLY, DETECTION_MODE_ALL_SEGMENTS
 from models import StorageUnit, StorageCompartment
 from utils import visualize_segmentation, create_hierarchy_tree
+from config import (
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_OBJECT_SIZE,
+    DEFAULT_CONTOUR_SMOOTHING_FACTOR,
+    DEFAULT_CORNER_ROUNDING_ITERATIONS,
+    DEFAULT_SEGMENTATION_MODEL,
+    DEFAULT_MODEL_INDEX,
+    DEFAULT_DETECTION_MODE
+)
 
 # Set page configuration
 st.set_page_config(
@@ -37,7 +46,7 @@ def main():
             "Confidence Threshold", 
             min_value=0.1, 
             max_value=1.0, 
-            value=0.5, 
+            value=DEFAULT_CONFIDENCE_THRESHOLD, 
             step=0.05
         )
         
@@ -46,9 +55,31 @@ def main():
             "Object size", 
             min_value=1, 
             max_value=50, 
-            value=15, 
+            value=DEFAULT_OBJECT_SIZE, 
             step=1,
             help="Filter out objects smaller than this percentage of the image width"
+        )
+        
+        # Visualization settings
+        st.subheader("Visualization Settings")
+        
+        # Add sliders for epsilon_factor and chaikin_iterations
+        epsilon_factor = st.slider(
+            "Contour Smoothing Factor", 
+            min_value=0.001, 
+            max_value=0.1, 
+            value=DEFAULT_CONTOUR_SMOOTHING_FACTOR, 
+            step=0.001,
+            help="Higher values result in smoother contours (Douglas-Peucker algorithm)"
+        )
+        
+        chaikin_iterations = st.slider(
+            "Corner Rounding Iterations", 
+            min_value=0, 
+            max_value=5, 
+            value=DEFAULT_CORNER_ROUNDING_ITERATIONS, 
+            step=1,
+            help="Higher values result in more rounded corners (Chaikin's algorithm)"
         )
         
         # Model selection
@@ -56,7 +87,7 @@ def main():
         model_type = st.radio(
             "Segmentation Model",
             options=["YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"],
-            index=0,
+            index=DEFAULT_MODEL_INDEX,
             help="Choose the segmentation model to use for detection"
         )
         
@@ -78,7 +109,8 @@ def main():
                 DETECTION_MODE_FULL, 
                 DETECTION_MODE_UNITS_ONLY,
                 DETECTION_MODE_ALL_SEGMENTS
-            ]
+            ],
+            index=[DETECTION_MODE_FULL, DETECTION_MODE_UNITS_ONLY, DETECTION_MODE_ALL_SEGMENTS].index(DEFAULT_DETECTION_MODE)
         )
         
         # Detection mode descriptions
@@ -141,10 +173,12 @@ def main():
                         filter_small_segments=False
                     )
                 
-                # Visualize results
+                # Visualize results with the slider parameters
                 annotated_image = visualize_segmentation(
                     np.array(image), 
-                    storage_units
+                    storage_units,
+                    epsilon_factor=epsilon_factor,
+                    chaikin_iterations=chaikin_iterations
                 )
                 
                 with col2:
