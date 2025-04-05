@@ -18,6 +18,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
+PS. a lot of the pre-trained weight and models are large 100M-200M so they are not in the git repo, most of them will automatically download on first use, but you might run into problems with missing models ".pt"-files.
 
 ## Usage
 
