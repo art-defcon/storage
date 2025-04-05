@@ -2,6 +2,8 @@
 
 This application uses advanced AI/ML models to scan images of my storage furniture, identify different storage types, and segment individual compartments within each storage unit. It creates a structured list of all available storage spaces and displays the image with visual annotations showing all identified segments.
 
+The purpose for creating this app was to get a sence of accuracy in different models for segmentation and also to test pretrainded weights in each model.ß 
+
 ![Storage Segmentation App Screenshot](https://github.com/art-defcon/storage/blob/main/public/screenshot_updated_2.png)
 *The Storage Segmentation App interface showing multiple detection models, ensemble methods, and visualization options that help me customize how storage units are identified and displayed.*
 
@@ -112,14 +114,3 @@ This project relies on several powerful open-source libraries:
 - **PyTorch**: Deep learning framework that powers all the models. [Documentation](https://pytorch.org/docs/)
 - **Hugging Face**: Platform for sharing and using machine learning models. [Documentation](https://huggingface.co/docs)
 - **Supervision**: Computer vision annotation toolkit. [GitHub](https://github.com/roboflow/supervision)
-
-## Credits and Acknowledgements
-
-This project is based on multiple open-source implementations:
-
-- **Ultralytics YOLO**: [GitHub Repository](https://github.com/ultralytics/ultralytics)
-- **YOLO-NAS**: [GitHub Repository](https://github.com/Deci-AI/super-gradients)
-- **RT-DETR**: [GitHub Repository](https://github.com/PaddlePaddle/PaddleDetection)
-- **SAM 2.1**: [GitHub Repository](https://github.com/facebookresearch/segment-anything)
-- **Grounding DINO**: [GitHub Repository](https://github.com/IDEA-Research/GroundingDINO)
-- **Detectron2**: [GitHub Repository](https://github.com/facebookresearch/detectron2)
