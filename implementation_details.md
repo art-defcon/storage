@@ -1,12 +1,21 @@
-import numpy as np
-import cv2
-from PIL import Image, ImageDraw, ImageFont
-import random
-import colorsys
-from typing import List, Dict, Any, Tuple
+# Implementation Details for Segmentation Post-Processing
 
-from models import StorageUnit, StorageCompartment
+This document provides detailed implementation instructions for adding smoothed border lines to the segmentation visualization.
 
+## Overview of Changes
+
+We'll be modifying the `utils.py` file to enhance the segmentation visualization with:
+1. Thicker border lines (7px)
+2. Darker border colors
+3. Smoothed contours to reduce jaggedness
+
+## Step-by-Step Implementation
+
+### 1. Add Helper Functions
+
+First, add these helper functions at the top of the `utils.py` file, after the existing imports:
+
+```python
 def darken_color(color, factor=0.7):
     """
     Create a darker shade of a color.
@@ -35,27 +44,133 @@ def smooth_contour(contour, epsilon_factor=0.005):
     perimeter = cv2.arcLength(contour, True)
     epsilon = epsilon_factor * perimeter
     return cv2.approxPolyDP(contour, epsilon, True)
+```
 
-def generate_colors(n: int) -> List[Tuple[int, int, int]]:
-    """
-    Generate n visually distinct colors.
+### 2. Modify the `visualize_segmentation` Function
+
+Now, we need to update the `visualize_segmentation` function to use our new helper functions. Here are the specific changes needed:
+
+#### For Storage Units (around line 83)
+
+Find this code block:
+
+```python
+# Draw the contours on the overlay
+for contour in contours:
+    # Convert contour points to a list of tuples for PIL
+    contour_points = [tuple(point[0]) for point in contour]
     
-    Args:
-        n: Number of colors to generate
-        
-    Returns:
-        List of RGB color tuples
-    """
-    colors = []
-    for i in range(n):
-        # Use HSV color space for better visual distinction
-        h = i / n
-        s = 0.8
-        v = 0.9
-        r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        colors.append((int(r * 255), int(g * 255), int(b * 255)))
-    return colors
+    # Fill the contour with semi-transparent color
+    if len(contour_points) > 2:  # Need at least 3 points to draw a polygon
+        overlay_draw.polygon(contour_points, fill=(*unit_color, int(255 * alpha)))
+        # Draw the contour outline
+        overlay_draw.line(contour_points + [contour_points[0]], fill=(*unit_color, 255), width=3)
+```
 
+Replace it with:
+
+```python
+# Draw the contours on the overlay
+for contour in contours:
+    # Smooth the contour
+    smoothed_contour = smooth_contour(contour)
+    
+    # Convert contour points to a list of tuples for PIL
+    contour_points = [tuple(point[0]) for point in smoothed_contour]
+    
+    # Fill the contour with semi-transparent color
+    if len(contour_points) > 2:  # Need at least 3 points to draw a polygon
+        overlay_draw.polygon(contour_points, fill=(*unit_color, int(255 * alpha)))
+        
+        # Create darker color for the border
+        border_color = darken_color(unit_color)
+        
+        # Draw the contour outline with thicker width and darker color
+        overlay_draw.line(contour_points + [contour_points[0]], fill=(*border_color, 255), width=7)
+```
+
+#### For Compartments (around line 184)
+
+Find this code block:
+
+```python
+# Draw the contours on the overlay
+for contour in contours:
+    # Convert contour points to a list of tuples for PIL
+    contour_points = [tuple(point[0]) for point in contour]
+    
+    # Fill the contour with semi-transparent color
+    if len(contour_points) > 2:  # Need at least 3 points to draw a polygon
+        overlay_draw.polygon(contour_points, fill=(*comp_color, int(255 * alpha)))
+        # Draw the contour outline
+        overlay_draw.line(contour_points + [contour_points[0]], fill=(*comp_color, 255), width=2)
+```
+
+Replace it with:
+
+```python
+# Draw the contours on the overlay
+for contour in contours:
+    # Smooth the contour
+    smoothed_contour = smooth_contour(contour)
+    
+    # Convert contour points to a list of tuples for PIL
+    contour_points = [tuple(point[0]) for point in smoothed_contour]
+    
+    # Fill the contour with semi-transparent color
+    if len(contour_points) > 2:  # Need at least 3 points to draw a polygon
+        overlay_draw.polygon(contour_points, fill=(*comp_color, int(255 * alpha)))
+        
+        # Create darker color for the border
+        border_color = darken_color(comp_color)
+        
+        # Draw the contour outline with thicker width and darker color
+        overlay_draw.line(contour_points + [contour_points[0]], fill=(*border_color, 255), width=7)
+```
+
+### 3. Alternative Smoothing Approach (Optional)
+
+If the Douglas-Peucker algorithm doesn't provide sufficient smoothing, you can try this alternative approach using Gaussian blur:
+
+Replace the contour finding code:
+
+```python
+# Find contours of the mask
+mask_uint8 = mask_binary.astype(np.uint8) * 255
+contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+```
+
+With:
+
+```python
+# Find contours of the mask with smoothing
+mask_uint8 = mask_binary.astype(np.uint8) * 255
+# Apply Gaussian blur to smooth the mask edges
+smoothed_mask = cv2.GaussianBlur(mask_uint8, (5, 5), 0)
+contours, _ = cv2.findContours(smoothed_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+```
+
+### 4. Fine-Tuning Parameters
+
+You may need to adjust these parameters for optimal results:
+
+1. **Darkening factor**: Adjust the `factor` parameter in `darken_color` (default: 0.7)
+   - Lower values make borders darker
+   - Higher values make borders closer to the original color
+
+2. **Smoothing factor**: Adjust the `epsilon_factor` parameter in `smooth_contour` (default: 0.005)
+   - Higher values create smoother but less accurate contours
+   - Lower values preserve more detail but may remain jagged
+
+3. **Gaussian blur kernel size**: If using the alternative approach, adjust the kernel size (default: (5, 5))
+   - Larger kernels create more smoothing
+   - Smaller kernels preserve more detail
+
+## Complete Modified Function
+
+For reference, here's the complete `visualize_segmentation` function with all changes applied:
+
+```python
 def visualize_segmentation(
     image: np.ndarray,
     storage_units: List[StorageUnit],
@@ -310,150 +425,14 @@ def visualize_segmentation(
     
     # Convert back to numpy array
     return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+```
 
-def create_hierarchy_tree(storage_units: List[StorageUnit]) -> str:
-    """
-    Create an HTML representation of the storage hierarchy as a tree.
-    
-    Args:
-        storage_units: List of detected storage units
-        
-    Returns:
-        HTML string representing the hierarchy tree
-    """
-    html = """
-    <style>
-    .tree {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-    }
-    .tree ul {
-        padding-left: 20px;
-    }
-    .tree li {
-        list-style-type: none;
-        margin: 10px;
-        position: relative;
-    }
-    .tree li::before {
-        content: "";
-        position: absolute;
-        top: -5px;
-        left: -20px;
-        border-left: 1px solid #ccc;
-        border-bottom: 1px solid #ccc;
-        width: 20px;
-        height: 15px;
-    }
-    .tree li:first-child::before {
-        top: 10px;
-    }
-    .tree ul li:last-child::before {
-        height: 25px;
-    }
-    .tree ul li:last-child {
-        border-left: none;
-    }
-    .tree li span {
-        display: inline-block;
-        padding: 5px 10px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        background-color: #f8f9fa;
-    }
-    .unit span {
-        background-color: #e6f7ff;
-        border-color: #91d5ff;
-    }
-    .compartment span {
-        background-color: #f6ffed;
-        border-color: #b7eb8f;
-    }
-    </style>
-    <div class="tree">
-        <ul>
-    """
-    
-    # Add storage units to the tree
-    for unit in storage_units:
-        unit_info = f"{unit.class_name} ({unit.confidence:.2f}) - {unit.width}x{unit.height}"
-        html += f'<li class="unit"><span>{unit_info}</span>'
-        
-        # Add compartments if any
-        if unit.compartments:
-            html += '<ul>'
-            for comp in unit.compartments:
-                comp_info = f"{comp.class_name} ({comp.confidence:.2f}) - {comp.width}x{comp.height}"
-                html += f'<li class="compartment"><span>{comp_info}</span></li>'
-            html += '</ul>'
-        
-        html += '</li>'
-    
-    html += """
-        </ul>
-    </div>
-    """
-    
-    return html
+## Testing the Implementation
 
-def crop_image(image: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
-    """
-    Crop an image to a bounding box.
-    
-    Args:
-        image: Input image
-        bbox: Bounding box (x1, y1, x2, y2)
-        
-    Returns:
-        Cropped image
-    """
-    x1, y1, x2, y2 = bbox
-    return image[y1:y2, x1:x2]
+After implementing these changes, you should test the visualization with various images to ensure:
 
-def resize_with_aspect_ratio(
-    image: np.ndarray,
-    width: int = None,
-    height: int = None,
-    inter: int = cv2.INTER_AREA
-) -> np.ndarray:
-    """
-    Resize an image while maintaining aspect ratio.
-    
-    Args:
-        image: Input image
-        width: Target width
-        height: Target height
-        inter: Interpolation method
-        
-    Returns:
-        Resized image
-    """
-    dim = None
-    h, w = image.shape[:2]
-    
-    if width is None and height is None:
-        return image
-    
-    if width is None:
-        r = height / float(h)
-        dim = (int(w * r), height)
-    else:
-        r = width / float(w)
-        dim = (width, int(h * r))
-    
-    return cv2.resize(image, dim, interpolation=inter)
+1. The borders are properly smoothed
+2. The 7px width is appropriate for your use case
+3. The darker color provides good contrast without being too dark
 
-def export_results_to_json(storage_units: List[StorageUnit]) -> Dict[str, Any]:
-    """
-    Export detection results to a JSON-serializable dictionary.
-    
-    Args:
-        storage_units: List of detected storage units
-        
-    Returns:
-        Dictionary with detection results
-    """
-    return {
-        "units_count": len(storage_units),
-        "units": [unit.to_dict() for unit in storage_units]
-    }
+You may need to adjust the parameters based on your specific requirements and the characteristics of your images.

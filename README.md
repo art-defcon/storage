@@ -97,14 +97,6 @@ The application uses a two-stage detection pipeline:
 
 The YOLO11x-seg model is used for both stages, providing improved segmentation accuracy compared to previous versions. The second stage focuses on the cropped regions of detected storage units.
 
-## Model Information
-
-The application now uses the YOLO11x-seg model, which offers several advantages over the previous YOLOv8 model:
-- Improved segmentation accuracy for better boundary detection
-- Enhanced feature extraction capabilities
-- Better performance on complex storage furniture with multiple compartments
-- More precise mask generation for irregular shapes
-
 ## Libraries Used
 
 This project relies on several powerful open-source libraries:
@@ -130,5 +122,4 @@ This project is based on the Ultralytics YOLO implementation by Glenn Jocher and
 
 - **Ultralytics YOLO**: [GitHub Repository](https://github.com/ultralytics/ultralytics)
 - **YOLO11x-seg Model**: [Model Documentation](https://docs.ultralytics.com/tasks/segment/)
-- **Author**: John Petroff
-- **Project Repository**: [GitHub](https://github.com/johnpetroff/storage-segmentation-app)
+
