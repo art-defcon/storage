@@ -4,13 +4,14 @@ import cv2
 from abc import ABC, abstractmethod
 from pathlib import Path
 from models import StorageUnit, StorageCompartment
+from config import DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_OBJECT_SIZE
 
 class BaseDetector(ABC):
     """
     Abstract base class for storage unit and compartment detection.
     """
     
-    def __init__(self, confidence_threshold=0.5):
+    def __init__(self, confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
         """
         Initialize the detector with parameters.
         
@@ -130,7 +131,7 @@ class BaseDetector(ABC):
             image (numpy.ndarray): Input image
             detect_compartments (bool): Whether to detect compartments within units
             filter_small_segments (bool): Whether to filter out small segments
-            min_segment_width (int): Minimum width for segments to be included (if None, uses 15% of image width)
+            min_segment_width (int): Minimum width for segments to be included (if None, uses DEFAULT_OBJECT_SIZE% of image width)
             
         Returns:
             list: List of StorageUnit objects with detected compartments
@@ -147,5 +148,34 @@ class BaseDetector(ABC):
             storage_unit (StorageUnit): Storage unit to detect compartments in
             filter_small_segments (bool): Whether to filter out small segments
             min_segment_width (int): Minimum width for segments to be included
+        """
+        pass
+    
+    def process_image_all_segments(self, image):
+        """
+        Process an image to show ALL segmentation possible by the model without any filtering.
+        This method completely disregards the concepts of "compartments" and "units" and
+        displays the raw segmentation output from the model.
+        
+        Args:
+            image (numpy.ndarray): Input image
+            
+        Returns:
+            list: List of StorageUnit objects representing raw segments (not actual storage units)
+        """
+        # This is a default implementation that should be overridden by each detector
+        # to provide model-specific raw segmentation output
+        return self._get_all_segments(image)
+    
+    @abstractmethod
+    def _get_all_segments(self, image):
+        """
+        Get all possible segments from the model without any filtering.
+        
+        Args:
+            image (numpy.ndarray): Input image
+            
+        Returns:
+            list: List of StorageUnit objects representing raw segments
         """
         pass

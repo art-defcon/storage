@@ -119,7 +119,7 @@ def main():
         elif detection_mode == DETECTION_MODE_UNITS_ONLY:
             st.info("Units Only: Detects only storage units without their compartments.")
         elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
-            st.info("All Segment: Shows all segmentation without filtering any objects.")
+            st.info("All Segment: Shows all raw segmentation output from the model without any filtering or categorization.")
         
         process_button = st.button("Process Image")
     
@@ -166,11 +166,10 @@ def main():
                         min_segment_width=min_segment_width
                     )
                 elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
-                    # For "All Segment" mode, we detect all segments without filtering
-                    storage_units = detector.process_image(
-                        np.array(image), 
-                        detect_compartments=True,
-                        filter_small_segments=False
+                    # For "All Segment" mode, we use a special method to get raw segmentation
+                    # without any filtering or categorization into units and compartments
+                    storage_units = detector.process_image_all_segments(
+                        np.array(image)
                     )
                 
                 # Visualize results with the slider parameters
@@ -182,7 +181,10 @@ def main():
                 )
                 
                 with col2:
-                    st.subheader(f"Detected Storage Units ({model_type})")
+                    if detection_mode == DETECTION_MODE_ALL_SEGMENTS:
+                        st.subheader(f"Raw Segmentation Output ({model_type})")
+                    else:
+                        st.subheader(f"Detected Storage Units ({model_type})")
                     st.image(annotated_image, use_container_width=True)
                 
                 # Display results
@@ -201,28 +203,37 @@ def main():
                     rows = []
                     
                     for unit in storage_units:
-                        rows.append({
-                            "Type": "Storage Unit",
-                            "Class": unit.class_name,
-                            "Confidence": f"{unit.confidence:.2f}",
-                            "Dimensions": f"{unit.width}x{unit.height}",
-                            "Parent": "None"
-                        })
-                        
-                        for comp in unit.compartments:
+                        if detection_mode == DETECTION_MODE_ALL_SEGMENTS:
                             rows.append({
-                                "Type": "Compartment",
-                                "Class": comp.class_name,
-                                "Confidence": f"{comp.confidence:.2f}",
-                                "Dimensions": f"{comp.width}x{comp.height}",
-                                "Parent": unit.class_name
+                                "Type": "Segment",
+                                "Class": unit.class_name,
+                                "Confidence": f"{unit.confidence:.2f}",
+                                "Dimensions": f"{unit.width}x{unit.height}",
+                                "Parent": "None"
                             })
+                        else:
+                            rows.append({
+                                "Type": "Storage Unit",
+                                "Class": unit.class_name,
+                                "Confidence": f"{unit.confidence:.2f}",
+                                "Dimensions": f"{unit.width}x{unit.height}",
+                                "Parent": "None"
+                            })
+                            
+                            for comp in unit.compartments:
+                                rows.append({
+                                    "Type": "Compartment",
+                                    "Class": comp.class_name,
+                                    "Confidence": f"{comp.confidence:.2f}",
+                                    "Dimensions": f"{comp.width}x{comp.height}",
+                                    "Parent": unit.class_name
+                                })
                     
                     if rows:
                         df = pd.DataFrame(rows)
                         st.dataframe(df)
                     else:
-                        st.info("No storage units detected.")
+                        st.info("No segments detected.")
                 
                 # Model comparison information
                 st.subheader("Model Information")

@@ -4,6 +4,7 @@ from pathlib import Path
 from ultralytics import FastSAM
 from models import StorageUnit, StorageCompartment
 from detectors.base_detector import BaseDetector
+from config import DEFAULT_OBJECT_SIZE
 
 class FastSAMDetector(BaseDetector):
     """
@@ -56,7 +57,7 @@ class FastSAMDetector(BaseDetector):
             image (numpy.ndarray): Input image
             detect_compartments (bool): Whether to detect compartments within units
             filter_small_segments (bool): Whether to filter out small segments
-            min_segment_width (int): Minimum width for segments to be included (if None, uses 15% of image width)
+            min_segment_width (int): Minimum width for segments to be included (if None, uses DEFAULT_OBJECT_SIZE% of image width)
             
         Returns:
             list: List of StorageUnit objects with detected compartments
@@ -64,9 +65,9 @@ class FastSAMDetector(BaseDetector):
         # Store original image dimensions
         original_h, original_w = image.shape[:2]
         
-        # If min_segment_width is not provided, calculate it as 15% of the image width
+        # If min_segment_width is not provided, calculate it based on DEFAULT_OBJECT_SIZE
         if filter_small_segments and min_segment_width is None:
-            min_segment_width = int(original_w * 0.15)
+            min_segment_width = int(original_w * (DEFAULT_OBJECT_SIZE / 100))
         
         # Resize image for model input if needed
         resized_image, scale_x, scale_y = self._resize_image(image)
@@ -158,9 +159,9 @@ class FastSAMDetector(BaseDetector):
         # Store original unit image dimensions
         unit_h, unit_w = unit_image.shape[:2]
         
-        # If min_segment_width is not provided, calculate it as 15% of the unit width
+        # If min_segment_width is not provided, calculate it based on DEFAULT_OBJECT_SIZE
         if filter_small_segments and min_segment_width is None:
-            min_segment_width = int(unit_w * 0.15)
+            min_segment_width = int(unit_w * (DEFAULT_OBJECT_SIZE / 100))
         
         # Resize unit image for model input if needed
         resized_unit_image = cv2.resize(unit_image, (self.input_size, self.input_size))
@@ -234,3 +235,77 @@ class FastSAMDetector(BaseDetector):
                 
                 # Add compartment to the storage unit
                 storage_unit.add_compartment(compartment)
+    
+    def _get_all_segments(self, image):
+        """
+        Get all possible segments from FastSAM without any filtering.
+        This method shows the raw segmentation output from the model.
+        
+        Args:
+            image (numpy.ndarray): Input image
+            
+        Returns:
+            list: List of StorageUnit objects representing raw segments
+        """
+        # Store original image dimensions
+        original_h, original_w = image.shape[:2]
+        
+        # Resize image for model input if needed
+        resized_image, scale_x, scale_y = self._resize_image(image)
+        
+        # Detect all segments with FastSAM
+        results = self.model.predict(
+            resized_image,
+            conf=0.1,  # Use a very low confidence threshold to get all segments
+            verbose=False
+        )
+        
+        segments = []
+        segment_count = 0
+        
+        # Process each detected segment
+        for result in results:
+            masks = result.masks.cpu().numpy() if result.masks is not None else None
+            
+            if masks is None or len(masks.data) == 0:
+                continue
+            
+            # Process each mask as a raw segment
+            for i, mask_data in enumerate(masks.data):
+                # Resize mask to original image dimensions
+                mask = cv2.resize(
+                    mask_data.astype(np.uint8),
+                    (original_w, original_h)
+                ).astype(bool)
+                
+                # Find bounding box from mask
+                y_indices, x_indices = np.where(mask)
+                if len(y_indices) == 0 or len(x_indices) == 0:
+                    continue
+                
+                x1, y1 = np.min(x_indices), np.min(y_indices)
+                x2, y2 = np.max(x_indices), np.max(y_indices)
+                
+                # Skip if the bounding box is too small (minimal filtering for visibility)
+                if x2 - x1 < 5 or y2 - y1 < 5:
+                    continue
+                
+                segment_count += 1
+                confidence = 1.0  # Use a default confidence for visualization
+                
+                # Create a segment object (using StorageUnit class for consistency)
+                segment = StorageUnit(
+                    x1=int(x1), y1=int(y1), x2=int(x2), y2=int(y2),
+                    confidence=confidence,
+                    class_id=0,  # Generic ID
+                    class_name=f"FastSAM Segment {segment_count}",  # Generic name with counter
+                    mask=mask
+                )
+                
+                segments.append(segment)
+                
+                # Print detection info for debugging
+                print(f"Raw FastSAM segment detected: {segment.class_name}")
+        
+        print(f"Total raw segments detected by FastSAM: {segment_count}")
+        return segments
