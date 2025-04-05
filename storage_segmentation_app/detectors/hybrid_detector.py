@@ -1,4 +1,4 @@
-ßimport os
+import os
 import numpy as np
 import cv2
 from pathlib import Path
@@ -498,94 +498,99 @@ class HybridDetector(BaseDetector):
             global_mask = None
             if dino_unit.mask is not None:
                 global_mask = np.zeros(image.shape[:2], dtype=bool)
-                global_mask[y1:y2, x1:x2][dino_unit.mask[0:unit_h, 0:unit_w]] = True
+                global_mask[y1:y2, x1:x2][dino_unit.mask] = True
             
             # Create compartment
             compartment = StorageCompartment(
-                x1=global_x1, y1=global_y1, x2=global_x2, y2=global_y2,
-                confidence=dino_unit.confidence,
-                class_id=dino_unit.class_id,
+                x1=global_x1,
+                y1=global_y1,
+                x2=global_x2,
+                y2=global_y2,
                 class_name=dino_unit.class_name,
-                mask=global_mask,
-                parent_unit=storage_unit
+                confidence=dino_unit.confidence,
+                mask=global_mask
             )
             
             dino_compartments.append(compartment)
         
-        # Step 2: Use SAM for precise segmentation
+        # Step 2: Use SAM for additional segmentation
         sam_compartments = []
         
-        # Get segments from SAM
-        sam_results = self.segmenter._get_all_segments(unit_image)
+        # Get all segments from SAM
+        sam_segments = self._get_all_segments(unit_image)
         
         # Convert to compartments
-        for sam_unit in sam_results:
-            # Skip if too small
-            if filter_small_segments and (sam_unit.x2 - sam_unit.x1) < min_segment_width:
-                continue
-            
+        for sam_segment in sam_segments:
             # Convert to global coordinates
-            global_x1 = x1 + sam_unit.x1
-            global_y1 = y1 + sam_unit.y1
-            global_x2 = x1 + sam_unit.x2
-            global_y2 = y1 + sam_unit.y2
+            global_x1 = x1 + sam_segment.x1
+            global_y1 = y1 + sam_segment.y1
+            global_x2 = x1 + sam_segment.x2
+            global_y2 = y1 + sam_segment.y2
             
             # Create global mask if available
             global_mask = None
-            if sam_unit.mask is not None:
+            if sam_segment.mask is not None:
                 global_mask = np.zeros(image.shape[:2], dtype=bool)
-                global_mask[y1:y2, x1:x2][sam_unit.mask[0:unit_h, 0:unit_w]] = True
+                global_mask[y1:y2, x1:x2][sam_segment.mask] = True
             
-            # Create compartment - use a default class for SAM segments
+            # Create compartment
             compartment = StorageCompartment(
-                x1=global_x1, y1=global_y1, x2=global_x2, y2=global_y2,
-                confidence=0.8,  # Default confidence for SAM
-                class_id=114,  # Compartment
-                class_name="Compartment",
-                mask=global_mask,
-                parent_unit=storage_unit
+                x1=global_x1,
+                y1=global_y1,
+                x2=global_x2,
+                y2=global_y2,
+                class_name="Compartment",  # Default class name
+                confidence=sam_segment.confidence,
+                mask=global_mask
             )
             
             sam_compartments.append(compartment)
         
-        # Combine compartments from both methods
-        all_compartments = []
-        all_compartments.extend(dino_compartments)
+        # Combine compartments from all detectors
+        combined_compartments = []
+        combined_compartments.extend(dino_compartments)
         
         # Add SAM compartments that don't overlap significantly with DINO compartments
-        for sam_comp in sam_compartments:
-            if not self._has_significant_overlap(sam_comp, all_compartments):
-                all_compartments.append(sam_comp)
+        for sam_compartment in sam_compartments:
+            # Check if this compartment overlaps significantly with any existing compartment
+            should_add = True
+            
+            for existing_compartment in combined_compartments:
+                # Calculate intersection over union (IoU)
+                intersection_x1 = max(sam_compartment.x1, existing_compartment.x1)
+                intersection_y1 = max(sam_compartment.y1, existing_compartment.y1)
+                intersection_x2 = min(sam_compartment.x2, existing_compartment.x2)
+                intersection_y2 = min(sam_compartment.y2, existing_compartment.y2)
+                
+                if intersection_x1 < intersection_x2 and intersection_y1 < intersection_y2:
+                    intersection_area = (intersection_x2 - intersection_x1) * (intersection_y2 - intersection_y1)
+                    sam_area = sam_compartment.width * sam_compartment.height
+                    existing_area = existing_compartment.width * existing_compartment.height
+                    union_area = sam_area + existing_area - intersection_area
+                    
+                    iou = intersection_area / union_area
+                    
+                    if iou > 0.5:
+                        should_add = False
+                        break
+            
+            if should_add:
+                combined_compartments.append(sam_compartment)
         
-        # Perform non-maximum suppression
-        final_compartments = self._non_maximum_suppression(all_compartments)
+        # Perform non-maximum suppression to remove duplicates
+        final_compartments = self._non_maximum_suppression(combined_compartments)
         
         # Add compartments to the storage unit
-        for compartment in final_compartments:
-            storage_unit.add_compartment(compartment)
+        storage_unit.compartments = final_compartments
     
     def _get_all_segments(self, image):
         """
-        Get all possible segments using the hybrid approach.
+        Get all segments from an image using SAM.
         
         Args:
             image (numpy.ndarray): Input image
             
         Returns:
-            list: List of StorageUnit objects representing raw segments
+            list: List of StorageUnit objects representing segments
         """
-        # Get segments from all component models
-        yolo_segments = self.unit_detector._get_all_segments(image)
-        dino_segments = self.component_classifier._get_all_segments(image)
-        sam_segments = self.segmenter._get_all_segments(image)
-        
-        # Combine all segments
-        all_segments = []
-        all_segments.extend(yolo_segments)
-        all_segments.extend(dino_segments)
-        all_segments.extend(sam_segments)
-        
-        # Perform non-maximum suppression
-        final_segments = self._non_maximum_suppression(all_segments, iou_threshold=0.3)
-        
-        return final_segments
+        return self.segmenter.process_image_all_segments(image)
