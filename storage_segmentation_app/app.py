@@ -15,7 +15,11 @@ from config import (
     DEFAULT_SEGMENTATION_MODEL,
     DEFAULT_MODEL_INDEX,
     DEFAULT_DETECTION_MODE,
-    MODEL_OPTIONS
+    MODEL_OPTIONS,
+    DYNAMIC_CONFIDENCE_THRESHOLDS,
+    DEFAULT_ENSEMBLE_METHOD,
+    DEFAULT_ENSEMBLE_MODELS,
+    USE_TEST_TIME_AUGMENTATION
 )
 
 # Set page configuration
@@ -92,6 +96,43 @@ def main():
             help="Choose the segmentation model to use for detection"
         )
         
+        # Advanced settings for ensemble models
+        if "Ensemble" in model_type:
+            st.subheader("Ensemble Settings")
+            ensemble_method = st.selectbox(
+                "Ensemble Method",
+                options=["uncertainty", "average", "max", "vote"],
+                index=0,
+                help="Method to combine predictions from multiple models"
+            )
+            
+            use_tta = st.checkbox(
+                "Use Test-Time Augmentation",
+                value=USE_TEST_TIME_AUGMENTATION,
+                help="Apply multiple transformations during inference for better results"
+            )
+            
+            # Allow selecting which models to include in the ensemble
+            st.write("Models to include in ensemble:")
+            ensemble_models = []
+            if st.checkbox("YOLO", value=True):
+                ensemble_models.append("yolo")
+            if st.checkbox("YOLO-NAS", value=True):
+                ensemble_models.append("yolo_nas_l")
+            if st.checkbox("RT-DETR", value=True):
+                ensemble_models.append("rtdetr_l")
+            if st.checkbox("SAM 2.1", value=True):
+                ensemble_models.append("sam21")
+            if st.checkbox("FastSAM", value=True):
+                ensemble_models.append("fastsam")
+            if st.checkbox("Grounding DINO", value=False):
+                ensemble_models.append("grounding_dino")
+        else:
+            # Default values for non-ensemble models
+            ensemble_method = DEFAULT_ENSEMBLE_METHOD
+            ensemble_models = DEFAULT_ENSEMBLE_MODELS
+            use_tta = USE_TEST_TIME_AUGMENTATION
+        
         # Model descriptions
         if model_type == "YOLO":
             st.info("YOLO: Fast and accurate object detection with good segmentation capabilities.")
@@ -103,6 +144,16 @@ def main():
             st.warning("SAM 2.1 base: Full-sized SAM 2.1 model with excellent detail and precision, but slower processing time.")
         elif "FastSAM" in model_type:
             st.info("FastSAM: Optimized version of SAM with faster processing but potentially less detail.")
+        elif "YOLO-NAS" in model_type:
+            st.success("YOLO-NAS: Advanced YOLO model with 10-17% higher mAP than YOLOv8.")
+        elif "RT-DETR" in model_type:
+            st.success("RT-DETR: Real-Time Detection Transformer combining transformer accuracy with YOLO speed.")
+        elif "Grounding DINO" in model_type:
+            st.success("Grounding DINO: Vision-language model with zero-shot detection capabilities.")
+        elif "Hybrid Pipeline" in model_type:
+            st.success("Hybrid Pipeline: Combines YOLO-NAS for initial detection, Grounding DINO for classification, and SAM 2.1 for precise segmentation.")
+        elif "Ensemble" in model_type:
+            st.success(f"Ensemble ({ensemble_method.capitalize()}): Combines predictions from multiple models for improved accuracy.")
         elif "Mask R-CNN (FPN)" in model_type:
             st.info("Mask R-CNN (FPN): Detectron2 model with Feature Pyramid Network for balanced performance and size (~170MB).")
         elif "Mask R-CNN (C4)" in model_type:
@@ -133,6 +184,13 @@ def main():
             st.info("Units Only: Detects only storage units without their compartments.")
         elif detection_mode == DETECTION_MODE_ALL_SEGMENTS:
             st.info("All Segment: Shows all raw segmentation output from the model without any filtering or categorization.")
+        
+        # Dynamic confidence thresholds option
+        use_dynamic_thresholds = st.checkbox(
+            "Use Dynamic Confidence Thresholds",
+            value=True,
+            help="Adjust confidence thresholds based on furniture type"
+        )
         
         process_button = st.button("Process Image")
     
@@ -166,12 +224,54 @@ def main():
                     detector_model_type = "deeplabv3_resnet101_voc"
                 elif "deeplabv3+ resnet50 (voc)" in detector_model_type:
                     detector_model_type = "deeplabv3_resnet50_voc"
+                elif "yolo-nas s" in detector_model_type:
+                    detector_model_type = "yolo_nas_s"
+                elif "yolo-nas m" in detector_model_type:
+                    detector_model_type = "yolo_nas_m"
+                elif "yolo-nas l" in detector_model_type:
+                    detector_model_type = "yolo_nas_l"
+                elif "rt-detr s" in detector_model_type:
+                    detector_model_type = "rtdetr_s"
+                elif "rt-detr m" in detector_model_type:
+                    detector_model_type = "rtdetr_m"
+                elif "rt-detr l" in detector_model_type:
+                    detector_model_type = "rtdetr_l"
+                elif "rt-detr x" in detector_model_type:
+                    detector_model_type = "rtdetr_x"
+                elif "grounding dino" in detector_model_type:
+                    detector_model_type = "grounding_dino"
+                elif "hybrid pipeline" in detector_model_type:
+                    detector_model_type = "hybrid"
+                elif "ensemble (uncertainty)" in detector_model_type:
+                    detector_model_type = "ensemble"
+                    ensemble_method = "uncertainty"
+                elif "ensemble (average)" in detector_model_type:
+                    detector_model_type = "ensemble"
+                    ensemble_method = "average"
+                elif "ensemble (max)" in detector_model_type:
+                    detector_model_type = "ensemble"
+                    ensemble_method = "max"
+                
+                # Additional kwargs for special models
+                kwargs = {}
+                if detector_model_type == "ensemble":
+                    kwargs["ensemble_method"] = ensemble_method
+                    kwargs["models"] = ensemble_models
                 
                 # Initialize detector with selected model
                 detector = create_detector(
                     model_type=detector_model_type,
-                    confidence_threshold=confidence_threshold
+                    confidence_threshold=confidence_threshold,
+                    **kwargs
                 )
+                
+                # Set test-time augmentation flag for ensemble and hybrid models
+                if hasattr(detector, "use_test_time_augmentation"):
+                    detector.use_test_time_augmentation = use_tta
+                
+                # Set dynamic thresholds if applicable
+                if hasattr(detector, "dynamic_thresholds") and use_dynamic_thresholds:
+                    detector.dynamic_thresholds = DYNAMIC_CONFIDENCE_THRESHOLDS
                 
                 # Calculate min_segment_width based on the object_size_percentage slider
                 image_width = image.width
@@ -234,7 +334,7 @@ def main():
                     st.metric("Average Confidence", f"{avg_confidence:.2f}")
                 
                 # Create tabs for different views
-                tab1, tab2, tab3 = st.tabs(["Hierarchy View", "Detailed Table View", "Summary View"])
+                tab1, tab2, tab3, tab4 = st.tabs(["Hierarchy View", "Detailed Table View", "Summary View", "Advanced Info"])
                 
                 with tab1:
                     # Display hierarchical tree view
@@ -357,6 +457,43 @@ def main():
                         else:
                             st.info("No segments detected.")
                 
+                with tab4:
+                    # Display advanced information about the detection process
+                    st.subheader("Advanced Detection Information")
+                    
+                    # Display metadata if available
+                    metadata_found = False
+                    for unit in storage_units:
+                        if unit.metadata:
+                            metadata_found = True
+                            st.write(f"**Unit {unit.class_name} Metadata:**")
+                            st.json(unit.metadata)
+                            
+                            # Display compartment metadata if available
+                            for comp in unit.compartments:
+                                if comp.metadata:
+                                    st.write(f"**Compartment {comp.class_name} Metadata:**")
+                                    st.json(comp.metadata)
+                    
+                    if not metadata_found:
+                        st.info("No advanced metadata available for this detection.")
+                    
+                    # Display model-specific information
+                    if "ensemble" in detector_model_type:
+                        st.subheader("Ensemble Model Information")
+                        st.write(f"**Ensemble Method:** {ensemble_method}")
+                        st.write(f"**Models Included:** {', '.join(ensemble_models)}")
+                        st.write(f"**Test-Time Augmentation:** {'Enabled' if use_tta else 'Disabled'}")
+                    
+                    elif "hybrid" in detector_model_type:
+                        st.subheader("Hybrid Pipeline Information")
+                        st.write("**Pipeline Components:**")
+                        st.write("1. YOLO-NAS for initial furniture unit detection")
+                        st.write("2. Grounding DINO for component classification")
+                        st.write("3. SAM 2.1 for precise segmentation")
+                        st.write(f"**Test-Time Augmentation:** {'Enabled' if use_tta else 'Disabled'}")
+                        st.write(f"**Dynamic Thresholds:** {'Enabled' if use_dynamic_thresholds else 'Disabled'}")
+                
                 # Model comparison information
                 st.subheader("Model Information")
                 st.markdown(f"""
@@ -364,16 +501,15 @@ def main():
                 
                 **Model Comparison:**
                 - **YOLO**: Fast detection with good accuracy for common objects. Best for real-time applications.
-                - **SAM 2.1 tiny**: Lightweight segmentation model with good speed and reasonable accuracy.
-                - **SAM 2.1 small**: Medium-sized model with balanced performance and accuracy.
-                - **SAM 2.1 base** ⚠️: Full-sized model with excellent boundary precision. Best for detailed analysis but slower.
-                - **FastSAM**: Optimized for speed while maintaining good segmentation quality. Good balance of speed and accuracy.
-                - **Mask R-CNN (FPN)**: Detectron2 model with Feature Pyramid Network for balanced performance and size (~170MB).
-                - **Mask R-CNN (C4)**: Detectron2 model with ResNet-50-C4 backbone, smaller alternative (~160MB).
-                - **DeepLabV3+ ResNet101 (ADE20K)**: Semantic segmentation model with ResNet101 backbone trained on ADE20K dataset. Optimized for Mac M1 with MPS support.
-                - **DeepLabV3+ ResNet50 (ADE20K)**: Lighter semantic segmentation model with ResNet50 backbone trained on ADE20K dataset. Faster with good accuracy, optimized for Mac M1.
-                - **DeepLabV3+ ResNet101 (VOC)**: Semantic segmentation model with ResNet101 backbone trained on PASCAL VOC dataset. Optimized for Mac M1 with MPS support.
-                - **DeepLabV3+ ResNet50 (VOC)**: Lighter semantic segmentation model with ResNet50 backbone trained on PASCAL VOC dataset. Faster with good accuracy, optimized for Mac M1.
+                - **YOLO-NAS**: Advanced YOLO model with 10-17% higher mAP than YOLOv8. Available in S, M, and L sizes.
+                - **RT-DETR**: Real-Time Detection Transformer combining transformer accuracy with YOLO speed. Available in S, M, L, and X sizes.
+                - **SAM 2.1**: Segment Anything Model 2.1 with excellent boundary precision. Available in tiny, small, and base variants.
+                - **FastSAM**: Optimized for speed while maintaining good segmentation quality.
+                - **Grounding DINO**: Vision-language model with zero-shot detection capabilities.
+                - **Hybrid Pipeline**: Combines YOLO-NAS for initial detection, Grounding DINO for classification, and SAM 2.1 for precise segmentation.
+                - **Ensemble Models**: Combine predictions from multiple models using different strategies (uncertainty, average, max).
+                - **Mask R-CNN (FPN/C4)**: Detectron2 models with different backbones.
+                - **DeepLabV3+**: Semantic segmentation models with different backbones and training datasets.
                 """)
 
 if __name__ == "__main__":

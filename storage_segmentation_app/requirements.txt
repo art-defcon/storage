@@ -6,3 +6,10 @@ pandas
 Pillow
 torch>=2.0.0
 torchvision>=0.15.0
+groundingdino-py  # For Grounding DINO support
+huggingface-hub  # For downloading models from HuggingFace
+supervision  # For visualization and utilities
+timm>=0.9.2  # For model architectures
+transformers>=4.30.0  # For transformer-based models
+scikit-learn  # For metrics and utilities
+matplotlib  # For visualization
