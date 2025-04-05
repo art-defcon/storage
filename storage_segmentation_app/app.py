@@ -14,7 +14,8 @@ from config import (
     DEFAULT_CORNER_ROUNDING_ITERATIONS,
     DEFAULT_SEGMENTATION_MODEL,
     DEFAULT_MODEL_INDEX,
-    DEFAULT_DETECTION_MODE
+    DEFAULT_DETECTION_MODE,
+    MODEL_OPTIONS
 )
 
 # Set page configuration
@@ -86,7 +87,7 @@ def main():
         st.subheader("Model Selection")
         model_type = st.radio(
             "Segmentation Model",
-            options=["YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"],
+            options=MODEL_OPTIONS,
             index=DEFAULT_MODEL_INDEX,
             help="Choose the segmentation model to use for detection"
         )
@@ -100,8 +101,20 @@ def main():
             st.info("SAM 2.1 small: Medium-sized SAM 2.1 model with balanced performance and accuracy.")
         elif "SAM 2.1 base" in model_type:
             st.warning("SAM 2.1 base: Full-sized SAM 2.1 model with excellent detail and precision, but slower processing time.")
-        else:  # FastSAM
+        elif "FastSAM" in model_type:
             st.info("FastSAM: Optimized version of SAM with faster processing but potentially less detail.")
+        elif "Mask R-CNN (FPN)" in model_type:
+            st.info("Mask R-CNN (FPN): Detectron2 model with Feature Pyramid Network for balanced performance and size (~170MB).")
+        elif "Mask R-CNN (C4)" in model_type:
+            st.info("Mask R-CNN (C4): Detectron2 model with ResNet-50-C4 backbone, smaller alternative (~160MB).")
+        elif "DeepLabV3+ ResNet101 (ADE20K)" in model_type:
+            st.info("DeepLabV3+ ResNet101 (ADE20K): Semantic segmentation model with ResNet101 backbone trained on ADE20K dataset. Optimized for Mac M1 with MPS support.")
+        elif "DeepLabV3+ ResNet50 (ADE20K)" in model_type:
+            st.info("DeepLabV3+ ResNet50 (ADE20K): Lighter semantic segmentation model with ResNet50 backbone trained on ADE20K dataset. Faster with good accuracy, optimized for Mac M1.")
+        elif "DeepLabV3+ ResNet101 (VOC)" in model_type:
+            st.info("DeepLabV3+ ResNet101 (VOC): Semantic segmentation model with ResNet101 backbone trained on PASCAL VOC dataset. Optimized for Mac M1 with MPS support.")
+        elif "DeepLabV3+ ResNet50 (VOC)" in model_type:
+            st.info("DeepLabV3+ ResNet50 (VOC): Lighter semantic segmentation model with ResNet50 backbone trained on PASCAL VOC dataset. Faster with good accuracy, optimized for Mac M1.")
         
         detection_mode = st.radio(
             "Detection Mode",
@@ -139,6 +152,20 @@ def main():
             with st.spinner(f"Processing image with {model_type}..."):
                 # Convert model type to lowercase for detector creation
                 detector_model_type = model_type.lower().replace(" ", "").replace(".", "").replace("⚠️", "")
+                
+                # Map UI model names to detector model types
+                if "mask r-cnn (fpn)" in detector_model_type:
+                    detector_model_type = "detectron2_fpn"
+                elif "mask r-cnn (c4)" in detector_model_type:
+                    detector_model_type = "detectron2_c4"
+                elif "deeplabv3+ resnet101 (ade20k)" in detector_model_type:
+                    detector_model_type = "deeplabv3_resnet101_ade20k"
+                elif "deeplabv3+ resnet50 (ade20k)" in detector_model_type:
+                    detector_model_type = "deeplabv3_resnet50_ade20k"
+                elif "deeplabv3+ resnet101 (voc)" in detector_model_type:
+                    detector_model_type = "deeplabv3_resnet101_voc"
+                elif "deeplabv3+ resnet50 (voc)" in detector_model_type:
+                    detector_model_type = "deeplabv3_resnet50_voc"
                 
                 # Initialize detector with selected model
                 detector = create_detector(
@@ -190,8 +217,24 @@ def main():
                 # Display results
                 st.subheader("Detection Results")
                 
+                # Display detection summary
+                total_units = len(storage_units)
+                total_compartments = sum(len(unit.compartments) for unit in storage_units)
+                
+                # Create summary metrics
+                col_metrics1, col_metrics2, col_metrics3 = st.columns(3)
+                with col_metrics1:
+                    st.metric("Total Storage Units", total_units)
+                with col_metrics2:
+                    st.metric("Total Compartments", total_compartments)
+                with col_metrics3:
+                    avg_confidence = 0
+                    if total_units > 0:
+                        avg_confidence = sum(unit.confidence for unit in storage_units) / total_units
+                    st.metric("Average Confidence", f"{avg_confidence:.2f}")
+                
                 # Create tabs for different views
-                tab1, tab2 = st.tabs(["Hierarchy View", "Table View"])
+                tab1, tab2, tab3 = st.tabs(["Hierarchy View", "Detailed Table View", "Summary View"])
                 
                 with tab1:
                     # Display hierarchical tree view
@@ -199,41 +242,120 @@ def main():
                     st.components.v1.html(hierarchy_html, height=400)
                 
                 with tab2:
-                    # Create a table with all detected elements
+                    # Create a more detailed table with all detected elements
                     rows = []
                     
-                    for unit in storage_units:
+                    for i, unit in enumerate(storage_units):
                         if detection_mode == DETECTION_MODE_ALL_SEGMENTS:
                             rows.append({
+                                "ID": f"S{i+1}",
                                 "Type": "Segment",
                                 "Class": unit.class_name,
                                 "Confidence": f"{unit.confidence:.2f}",
-                                "Dimensions": f"{unit.width}x{unit.height}",
+                                "Width": unit.width,
+                                "Height": unit.height,
+                                "Area (px²)": unit.area,
+                                "Position": f"({unit.x1}, {unit.y1}) to ({unit.x2}, {unit.y2})",
                                 "Parent": "None"
                             })
                         else:
                             rows.append({
+                                "ID": f"U{i+1}",
                                 "Type": "Storage Unit",
                                 "Class": unit.class_name,
                                 "Confidence": f"{unit.confidence:.2f}",
-                                "Dimensions": f"{unit.width}x{unit.height}",
+                                "Width": unit.width,
+                                "Height": unit.height,
+                                "Area (px²)": unit.area,
+                                "Position": f"({unit.x1}, {unit.y1}) to ({unit.x2}, {unit.y2})",
+                                "Compartments": len(unit.compartments),
                                 "Parent": "None"
                             })
                             
-                            for comp in unit.compartments:
+                            for j, comp in enumerate(unit.compartments):
                                 rows.append({
+                                    "ID": f"U{i+1}-C{j+1}",
                                     "Type": "Compartment",
                                     "Class": comp.class_name,
                                     "Confidence": f"{comp.confidence:.2f}",
-                                    "Dimensions": f"{comp.width}x{comp.height}",
-                                    "Parent": unit.class_name
+                                    "Width": comp.width,
+                                    "Height": comp.height,
+                                    "Area (px²)": comp.area,
+                                    "Position": f"({comp.x1}, {comp.y1}) to ({comp.x2}, {comp.y2})",
+                                    "Compartments": "",
+                                    "Parent": f"U{i+1} ({unit.class_name})"
                                 })
                     
                     if rows:
                         df = pd.DataFrame(rows)
-                        st.dataframe(df)
+                        st.dataframe(df, use_container_width=True)
                     else:
                         st.info("No segments detected.")
+                
+                with tab3:
+                    # Create a summary view with statistics by object type
+                    if detection_mode != DETECTION_MODE_ALL_SEGMENTS:
+                        # Collect unit types and their counts
+                        unit_types = {}
+                        compartment_types = {}
+                        
+                        for unit in storage_units:
+                            unit_type = unit.class_name
+                            if unit_type in unit_types:
+                                unit_types[unit_type] += 1
+                            else:
+                                unit_types[unit_type] = 1
+                            
+                            for comp in unit.compartments:
+                                comp_type = comp.class_name
+                                if comp_type in compartment_types:
+                                    compartment_types[comp_type] += 1
+                                else:
+                                    compartment_types[comp_type] = 1
+                        
+                        # Create summary tables
+                        col_summary1, col_summary2 = st.columns(2)
+                        
+                        with col_summary1:
+                            st.subheader("Storage Unit Types")
+                            if unit_types:
+                                unit_df = pd.DataFrame({
+                                    "Type": list(unit_types.keys()),
+                                    "Count": list(unit_types.values())
+                                })
+                                st.dataframe(unit_df, use_container_width=True)
+                            else:
+                                st.info("No storage units detected.")
+                        
+                        with col_summary2:
+                            st.subheader("Compartment Types")
+                            if compartment_types:
+                                comp_df = pd.DataFrame({
+                                    "Type": list(compartment_types.keys()),
+                                    "Count": list(compartment_types.values())
+                                })
+                                st.dataframe(comp_df, use_container_width=True)
+                            else:
+                                st.info("No compartments detected.")
+                    else:
+                        # For all segments mode, just show segment types
+                        segment_types = {}
+                        for unit in storage_units:
+                            segment_type = unit.class_name
+                            if segment_type in segment_types:
+                                segment_types[segment_type] += 1
+                            else:
+                                segment_types[segment_type] = 1
+                        
+                        st.subheader("Segment Types")
+                        if segment_types:
+                            segment_df = pd.DataFrame({
+                                "Type": list(segment_types.keys()),
+                                "Count": list(segment_types.values())
+                            })
+                            st.dataframe(segment_df, use_container_width=True)
+                        else:
+                            st.info("No segments detected.")
                 
                 # Model comparison information
                 st.subheader("Model Information")
@@ -246,6 +368,12 @@ def main():
                 - **SAM 2.1 small**: Medium-sized model with balanced performance and accuracy.
                 - **SAM 2.1 base** ⚠️: Full-sized model with excellent boundary precision. Best for detailed analysis but slower.
                 - **FastSAM**: Optimized for speed while maintaining good segmentation quality. Good balance of speed and accuracy.
+                - **Mask R-CNN (FPN)**: Detectron2 model with Feature Pyramid Network for balanced performance and size (~170MB).
+                - **Mask R-CNN (C4)**: Detectron2 model with ResNet-50-C4 backbone, smaller alternative (~160MB).
+                - **DeepLabV3+ ResNet101 (ADE20K)**: Semantic segmentation model with ResNet101 backbone trained on ADE20K dataset. Optimized for Mac M1 with MPS support.
+                - **DeepLabV3+ ResNet50 (ADE20K)**: Lighter semantic segmentation model with ResNet50 backbone trained on ADE20K dataset. Faster with good accuracy, optimized for Mac M1.
+                - **DeepLabV3+ ResNet101 (VOC)**: Semantic segmentation model with ResNet101 backbone trained on PASCAL VOC dataset. Optimized for Mac M1 with MPS support.
+                - **DeepLabV3+ ResNet50 (VOC)**: Lighter semantic segmentation model with ResNet50 backbone trained on PASCAL VOC dataset. Faster with good accuracy, optimized for Mac M1.
                 """)
 
 if __name__ == "__main__":

@@ -155,9 +155,18 @@ def visualize_segmentation(
     
     # Try to load a font, fall back to default if not available
     try:
-        font = ImageFont.truetype("arial.ttf", 16)
+        # Try to load a larger font for better visibility
+        font = ImageFont.truetype("arial.ttf", 20)
+        small_font = ImageFont.truetype("arial.ttf", 16)
     except IOError:
-        font = ImageFont.load_default()
+        try:
+            # Try system fonts if arial is not available
+            font = ImageFont.truetype("DejaVuSans.ttf", 20)
+            small_font = ImageFont.truetype("DejaVuSans.ttf", 16)
+        except IOError:
+            # Fall back to default if no fonts are available
+            font = ImageFont.load_default()
+            small_font = ImageFont.load_default()
     
     # Generate colors for units and compartments
     unit_colors = generate_colors(len(storage_units))
@@ -211,27 +220,61 @@ def visualize_segmentation(
                         # Fallback to bounding box center
                         cx, cy = unit.center
                     
-                    # Create label
-                    label = f"{unit.class_name}"
+                    # Create enhanced label with type and confidence
+                    label = f"Storage Unit: {unit.class_name}"
+                    confidence_label = f"Conf: {unit.confidence:.2f}"
+                    dimensions_label = f"Size: {unit.width}x{unit.height}"
                     
-                    # Get text size
+                    # Get text size for main label
                     left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
                     text_width = right - left
                     text_height = bottom - top
                     
-                    # Draw label background
+                    # Get text size for confidence label
+                    conf_left, conf_top, conf_right, conf_bottom = draw.textbbox((0, 0), confidence_label, font=small_font)
+                    conf_text_width = conf_right - conf_left
+                    conf_text_height = conf_bottom - conf_top
+                    
+                    # Get text size for dimensions label
+                    dim_left, dim_top, dim_right, dim_bottom = draw.textbbox((0, 0), dimensions_label, font=small_font)
+                    dim_text_width = dim_right - dim_left
+                    dim_text_height = dim_bottom - dim_top
+                    
+                    # Calculate total height for all labels
+                    total_height = text_height + conf_text_height + dim_text_height + 10  # 10 for padding
+                    max_width = max(text_width, conf_text_width, dim_text_width)
+                    
+                    # Draw enhanced label background with rounded corners
                     overlay_draw.rectangle(
-                        [(cx - text_width//2 - 2, cy - text_height//2 - 2), 
-                         (cx + text_width//2 + 2, cy + text_height//2 + 2)],
-                        fill=(*unit_color, 200)
+                        [(cx - max_width//2 - 10, cy - total_height//2 - 10), 
+                         (cx + max_width//2 + 10, cy + total_height//2 + 10)],
+                        fill=(*unit_color, 230),
+                        outline=(*border_color, 255),
+                        width=2
                     )
                     
-                    # Draw label text
+                    # Draw main label text
                     overlay_draw.text(
-                        (cx - text_width//2, cy - text_height//2),
+                        (cx - text_width//2, cy - total_height//2),
                         label,
                         fill=(255, 255, 255, 255),
                         font=font
+                    )
+                    
+                    # Draw confidence label
+                    overlay_draw.text(
+                        (cx - conf_text_width//2, cy - total_height//2 + text_height + 2),
+                        confidence_label,
+                        fill=(255, 255, 255, 255),
+                        font=small_font
+                    )
+                    
+                    # Draw dimensions label
+                    overlay_draw.text(
+                        (cx - dim_text_width//2, cy - total_height//2 + text_height + conf_text_height + 4),
+                        dimensions_label,
+                        fill=(255, 255, 255, 255),
+                        font=small_font
                     )
             except Exception as e:
                 print(f"Warning: Could not apply mask for unit {i}: {e}")
@@ -249,22 +292,44 @@ def visualize_segmentation(
                 width=line_width
             )
             
-            # Draw unit label for bounding box
+            # Draw enhanced unit label for bounding box
             if show_labels:
-                label = f"{unit.class_name}"
+                label = f"Storage Unit: {unit.class_name}"
+                confidence_label = f"Conf: {unit.confidence:.2f}"
+                
                 left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
                 text_width = right - left
                 text_height = bottom - top
                 
+                conf_left, conf_top, conf_right, conf_bottom = draw.textbbox((0, 0), confidence_label, font=small_font)
+                conf_text_width = conf_right - conf_left
+                conf_text_height = conf_bottom - conf_top
+                
+                max_width = max(text_width, conf_text_width)
+                total_height = text_height + conf_text_height + 4
+                
+                # Draw background with border
                 draw.rectangle(
-                    [(unit.x1, unit.y1 - text_height - 4), (unit.x1 + text_width + 4, unit.y1)],
-                    fill=unit_color
+                    [(unit.x1, unit.y1 - total_height - 4), (unit.x1 + max_width + 8, unit.y1)],
+                    fill=unit_color,
+                    outline=darken_color(unit_color),
+                    width=2
                 )
+                
+                # Draw main label
                 draw.text(
-                    (unit.x1 + 2, unit.y1 - text_height - 2),
+                    (unit.x1 + 4, unit.y1 - total_height - 2),
                     label,
                     fill=(255, 255, 255),
                     font=font
+                )
+                
+                # Draw confidence label
+                draw.text(
+                    (unit.x1 + 4, unit.y1 - conf_text_height - 2),
+                    confidence_label,
+                    fill=(255, 255, 255),
+                    font=small_font
                 )
         
         # Generate colors for compartments
@@ -319,27 +384,72 @@ def visualize_segmentation(
                             # Fallback to bounding box center
                             cx, cy = compartment.center
                         
-                        # Create label
-                        label = f"{compartment.class_name}"
+                        # Create enhanced label with type and confidence
+                        label = f"Compartment: {compartment.class_name}"
+                        confidence_label = f"Conf: {compartment.confidence:.2f}"
+                        dimensions_label = f"Size: {compartment.width}x{compartment.height}"
+                        parent_label = f"In: {unit.class_name}"
                         
-                        # Get text size
+                        # Get text sizes
                         left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
                         text_width = right - left
                         text_height = bottom - top
                         
-                        # Draw label background
+                        conf_left, conf_top, conf_right, conf_bottom = draw.textbbox((0, 0), confidence_label, font=small_font)
+                        conf_text_width = conf_right - conf_left
+                        conf_text_height = conf_bottom - conf_top
+                        
+                        dim_left, dim_top, dim_right, dim_bottom = draw.textbbox((0, 0), dimensions_label, font=small_font)
+                        dim_text_width = dim_right - dim_left
+                        dim_text_height = dim_bottom - dim_top
+                        
+                        parent_left, parent_top, parent_right, parent_bottom = draw.textbbox((0, 0), parent_label, font=small_font)
+                        parent_text_width = parent_right - parent_left
+                        parent_text_height = parent_bottom - parent_top
+                        
+                        # Calculate total height and max width
+                        total_height = text_height + conf_text_height + dim_text_height + parent_text_height + 12
+                        max_width = max(text_width, conf_text_width, dim_text_width, parent_text_width)
+                        
+                        # Draw enhanced label background with rounded corners
                         overlay_draw.rectangle(
-                            [(cx - text_width//2 - 2, cy - text_height//2 - 2), 
-                             (cx + text_width//2 + 2, cy + text_height//2 + 2)],
-                            fill=(*comp_color, 200)
+                            [(cx - max_width//2 - 10, cy - total_height//2 - 10), 
+                             (cx + max_width//2 + 10, cy + total_height//2 + 10)],
+                            fill=(*comp_color, 230),
+                            outline=(*border_color, 255),
+                            width=2
                         )
                         
-                        # Draw label text
+                        # Draw main label text
                         overlay_draw.text(
-                            (cx - text_width//2, cy - text_height//2),
+                            (cx - text_width//2, cy - total_height//2),
                             label,
                             fill=(255, 255, 255, 255),
                             font=font
+                        )
+                        
+                        # Draw confidence label
+                        overlay_draw.text(
+                            (cx - conf_text_width//2, cy - total_height//2 + text_height + 2),
+                            confidence_label,
+                            fill=(255, 255, 255, 255),
+                            font=small_font
+                        )
+                        
+                        # Draw dimensions label
+                        overlay_draw.text(
+                            (cx - dim_text_width//2, cy - total_height//2 + text_height + conf_text_height + 4),
+                            dimensions_label,
+                            fill=(255, 255, 255, 255),
+                            font=small_font
+                        )
+                        
+                        # Draw parent unit label
+                        overlay_draw.text(
+                            (cx - parent_text_width//2, cy - total_height//2 + text_height + conf_text_height + dim_text_height + 6),
+                            parent_label,
+                            fill=(255, 255, 255, 255),
+                            font=small_font
                         )
                 except Exception as e:
                     print(f"Warning: Could not apply mask for compartment {j} in unit {i}: {e}")
@@ -357,23 +467,58 @@ def visualize_segmentation(
                     width=line_width
                 )
                 
-                # Draw compartment label for bounding box
+                # Draw enhanced compartment label for bounding box
                 if show_labels:
-                    label = f"{compartment.class_name}"
+                    label = f"Compartment: {compartment.class_name}"
+                    confidence_label = f"Conf: {compartment.confidence:.2f}"
+                    parent_label = f"In: {unit.class_name}"
+                    
                     left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
                     text_width = right - left
                     text_height = bottom - top
                     
+                    conf_left, conf_top, conf_right, conf_bottom = draw.textbbox((0, 0), confidence_label, font=small_font)
+                    conf_text_width = conf_right - conf_left
+                    conf_text_height = conf_bottom - conf_top
+                    
+                    parent_left, parent_top, parent_right, parent_bottom = draw.textbbox((0, 0), parent_label, font=small_font)
+                    parent_text_width = parent_right - parent_left
+                    parent_text_height = parent_bottom - parent_top
+                    
+                    max_width = max(text_width, conf_text_width, parent_text_width)
+                    total_height = text_height + conf_text_height + parent_text_height + 6
+                    
+                    # Draw background with border
                     draw.rectangle(
-                        [(compartment.x1, compartment.y1 - text_height - 4), 
-                         (compartment.x1 + text_width + 4, compartment.y1)],
-                        fill=comp_color
+                        [(compartment.x1, compartment.y1 - total_height - 4), 
+                         (compartment.x1 + max_width + 8, compartment.y1)],
+                        fill=comp_color,
+                        outline=darken_color(comp_color),
+                        width=2
                     )
+                    
+                    # Draw main label
                     draw.text(
-                        (compartment.x1 + 2, compartment.y1 - text_height - 2),
+                        (compartment.x1 + 4, compartment.y1 - total_height - 2),
                         label,
                         fill=(255, 255, 255),
                         font=font
+                    )
+                    
+                    # Draw confidence label
+                    draw.text(
+                        (compartment.x1 + 4, compartment.y1 - total_height + text_height),
+                        confidence_label,
+                        fill=(255, 255, 255),
+                        font=small_font
+                    )
+                    
+                    # Draw parent unit label
+                    draw.text(
+                        (compartment.x1 + 4, compartment.y1 - parent_text_height - 2),
+                        parent_label,
+                        fill=(255, 255, 255),
+                        font=small_font
                     )
     
     # Composite the overlay with the original image
@@ -500,7 +645,7 @@ def resize_with_aspect_ratio(
         Resized image
     """
     dim = None
-    h, w = image.shape[:2]
+    (h, w) = image.shape[:2]
     
     if width is None and height is None:
         return image
@@ -524,28 +669,14 @@ def export_results_to_json(storage_units: List[StorageUnit]) -> Dict[str, Any]:
     Returns:
         Dictionary with detection results
     """
-    results = []
+    results = {
+        "storage_units": [],
+        "total_units": len(storage_units),
+        "total_compartments": sum(len(unit.compartments) for unit in storage_units)
+    }
     
     for unit in storage_units:
-        unit_dict = {
-            "class": unit.class_name,
-            "confidence": float(unit.confidence),
-            "bbox": [int(unit.x1), int(unit.y1), int(unit.x2), int(unit.y2)],
-            "width": int(unit.width),
-            "height": int(unit.height),
-            "compartments": []
-        }
-        
-        for comp in unit.compartments:
-            comp_dict = {
-                "class": comp.class_name,
-                "confidence": float(comp.confidence),
-                "bbox": [int(comp.x1), int(comp.y1), int(comp.x2), int(comp.y2)],
-                "width": int(comp.width),
-                "height": int(comp.height)
-            }
-            unit_dict["compartments"].append(comp_dict)
-        
-        results.append(unit_dict)
+        unit_data = unit.to_dict()
+        results["storage_units"].append(unit_data)
     
-    return {"storage_units": results}
+    return results

@@ -11,10 +11,25 @@ DEFAULT_CONTOUR_SMOOTHING_FACTOR = 0.1
 DEFAULT_CORNER_ROUNDING_ITERATIONS = 0
 
 # Model selection defaults
-# Options: "YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"
+# Options: "YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM", 
+#          "Mask R-CNN (FPN)", "Mask R-CNN (C4)",
+#          "DeepLabV3+ ResNet101 (ADE20K)", "DeepLabV3+ ResNet50 (ADE20K)",
+#          "DeepLabV3+ ResNet101 (VOC)", "DeepLabV3+ ResNet50 (VOC)"
 DEFAULT_SEGMENTATION_MODEL = "FastSAM"
 # Get the index of the default model in the options list
-MODEL_OPTIONS = ["YOLO", "SAM 2.1 tiny", "SAM 2.1 small", "SAM 2.1 base ⚠️", "FastSAM"]
+MODEL_OPTIONS = [
+    "YOLO", 
+    "SAM 2.1 tiny", 
+    "SAM 2.1 small", 
+    "SAM 2.1 base ⚠️", 
+    "FastSAM", 
+    "Mask R-CNN (FPN)", 
+    "Mask R-CNN (C4)",
+    "DeepLabV3+ ResNet101 (ADE20K)",
+    "DeepLabV3+ ResNet50 (ADE20K)",
+    "DeepLabV3+ ResNet101 (VOC)",
+    "DeepLabV3+ ResNet50 (VOC)"
+]
 DEFAULT_MODEL_INDEX = MODEL_OPTIONS.index(DEFAULT_SEGMENTATION_MODEL)
 
 # Detection mode defaults
