@@ -2,7 +2,7 @@
 
 This application uses advanced AI/ML models to scan images of my storage furniture, identify different storage types, and segment individual compartments within each storage unit. It creates a structured list of all available storage spaces and displays the image with visual annotations showing all identified segments.
 
-![Storage Segmentation App Screenshot](https://github.com/art-defcon/storage/blob/main/public/screenshot_updated.png)
+![Storage Segmentation App Screenshot](https://github.com/art-defcon/storage/blob/main/public/screenshot_updated_2.png)
 *The Storage Segmentation App interface showing multiple detection models, ensemble methods, and visualization options that help me customize how storage units are identified and displayed.*
 
 ## Features
