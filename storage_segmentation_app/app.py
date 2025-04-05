@@ -159,13 +159,13 @@ def main():
         elif "Mask R-CNN (C4)" in model_type:
             st.info("Mask R-CNN (C4): Detectron2 model with ResNet-50-C4 backbone, smaller alternative (~160MB).")
         elif "DeepLabV3+ ResNet101 (ADE20K)" in model_type:
-            st.info("DeepLabV3+ ResNet101 (ADE20K): Semantic segmentation model with ResNet101 backbone trained on ADE20K dataset. Optimized for Mac M1 with MPS support.")
+            st.info("DeepLabV3+ ResNet101 (ADE20K): Semantic segmentation model with ResNet101 backbone trained on ADE20K dataset.")
         elif "DeepLabV3+ ResNet50 (ADE20K)" in model_type:
-            st.info("DeepLabV3+ ResNet50 (ADE20K): Lighter semantic segmentation model with ResNet50 backbone trained on ADE20K dataset. Faster with good accuracy, optimized for Mac M1.")
+            st.info("DeepLabV3+ ResNet50 (ADE20K): Lighter semantic segmentation model with ResNet50 backbone trained on ADE20K dataset. Faster with good accuracy.")
         elif "DeepLabV3+ ResNet101 (VOC)" in model_type:
-            st.info("DeepLabV3+ ResNet101 (VOC): Semantic segmentation model with ResNet101 backbone trained on PASCAL VOC dataset. Optimized for Mac M1 with MPS support.")
+            st.info("DeepLabV3+ ResNet101 (VOC): Semantic segmentation model with ResNet101 backbone trained on PASCAL VOC dataset.")
         elif "DeepLabV3+ ResNet50 (VOC)" in model_type:
-            st.info("DeepLabV3+ ResNet50 (VOC): Lighter semantic segmentation model with ResNet50 backbone trained on PASCAL VOC dataset. Faster with good accuracy, optimized for Mac M1.")
+            st.info("DeepLabV3+ ResNet50 (VOC): Lighter semantic segmentation model with ResNet50 backbone trained on PASCAL VOC dataset. Faster with good accuracy.")
         
         detection_mode = st.radio(
             "Detection Mode",

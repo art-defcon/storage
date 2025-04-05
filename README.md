@@ -18,7 +18,7 @@ The purpose for creating this app was to get a sence of accuracy in different mo
   - FastSAM for optimized segmentation
   - Grounding DINO for vision-language capabilities and zero-shot detection
   - Mask R-CNN models from Detectron2
-  - DeepLabV3+ models optimized for Mac M1
+  - DeepLabV3+ models
 - Advanced detection pipelines:
   - Hybrid Pipeline combining YOLO-NAS, Grounding DINO, and SAM 2.1
   - Ensemble methods (uncertainty-aware, average, max, vote)

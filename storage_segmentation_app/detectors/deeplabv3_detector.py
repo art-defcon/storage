@@ -56,7 +56,7 @@ class DeepLabV3PlusDetector(BaseDetector):
             import torchvision
             from torchvision.models.segmentation import deeplabv3_resnet50, deeplabv3_resnet101
             
-            # Check if MPS (Metal Performance Shaders) is available for Mac M1
+            # Check if MPS (Metal Performance Shaders) is available
             self.device = torch.device("mps" if torch.backends.mps.is_available() else 
                                       ("cuda" if torch.cuda.is_available() else "cpu"))
             
